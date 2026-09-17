@@ -19,7 +19,7 @@ TOKENCUT_SETTINGS_FILE="$SETTINGS"
 ensure_settings() {
   if [[ ! -f "$SETTINGS" ]]; then
     mkdir -p "$(dirname "$SETTINGS")"
-    printf '%s\n' '{"enabled":true,"badge":true,"smart_route":true,"updated_at":null,"updated_by":null}' > "$SETTINGS"
+    printf '%s\n' '{"enabled":true,"badge":true,"smart_route":true,"inject_brain":true,"inject_lessons":true,"classify_ambiguous":true,"auto_continue":true,"updated_at":null,"updated_by":null}' > "$SETTINGS"
   fi
 }
 
@@ -35,6 +35,17 @@ set_key() {
 
 print_status() {
   ensure_settings
+
+  # Backfill missing keys so auto_continue cannot "disappear"
+  jq '
+    .enabled = (.enabled // true) |
+    .badge = (.badge // true) |
+    .smart_route = (.smart_route // true) |
+    .inject_brain = (.inject_brain // true) |
+    .inject_lessons = (.inject_lessons // true) |
+    .classify_ambiguous = (.classify_ambiguous // true) |
+    .auto_continue = (.auto_continue // true)
+  ' "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
   local en badge sr
   en=$(jq -r .enabled "$SETTINGS")
   badge=$(jq -r .badge "$SETTINGS")
@@ -71,7 +82,8 @@ case "$cmd" in
     ;;
   off)
     set_key enabled false
-    echo "tokencut OFF 🔴 — agent should answer on main chat only"
+    echo "tokencut OFF 🔴 — disables ALL tokencut packing (not only auto_continue)"
+    echo "  Tip: to pause auto-continue only → toggle auto-continue off"
     print_status
     ;;
   badge)
