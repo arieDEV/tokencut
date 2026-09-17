@@ -56,6 +56,29 @@ Successful tokencut runs end with a **✂️** badge and job id. Direct answers 
 
 Agent routing notes: [docs/PUBLIC.md](docs/PUBLIC.md) · [docs/when-to-use.md](docs/when-to-use.md)
 
+## Benchmarks (quantity + quality)
+
+Fixed eval on this repo’s docs/scripts corpus (11 files, ~30 KB). Tokens ≈ `ceil(bytes/4)` (not a billing meter).
+
+| | Main-chat load (approx tokens) |
+| --- | ---: |
+| **Before** — dump full corpus into main context | **7,488** |
+| **After** — tokencut pack prompt + worker answer only | **774** |
+| **Main-chat reduction** | **89.7%** (~6,714 tokens) |
+
+The worker still reads the corpus on a **cheap tier** (~7,488 tokens there). Reported savings are on expensive main-chat context.
+
+| Quality rubric (worker answer) | Score |
+| --- | --- |
+| Purpose accuracy | 2/2 |
+| Install / toggle correctness | 2/2 |
+| When-to-use gate correctness | 2/2 |
+| Citations present | 2/2 |
+| Citation spot-check (3 lines verified) | 2/2 (**100%** hits) |
+| **Total** | **10/10** |
+
+Full write-up, caveats, and artifacts: [bench/RESULTS.md](bench/RESULTS.md) · [bench/before-after.html](bench/before-after.html)
+
 ## Requirements
 
 - `bash`, `jq`, `python3`

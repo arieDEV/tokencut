@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -57,7 +57,7 @@
   .dot.a { background: var(--after); }
   .answer {
     background: #121820; border: 1px solid var(--border); border-radius: 8px; padding: .9rem 1rem;
-    font-size: .88rem; color: #d5deea; max-height: 320px; overflow: auto;
+    font-size: .88rem; color: #d5deea; max-height: 360px; overflow: auto;
   }
   ul.caveats { color: var(--muted); padding-left: 1.1rem; }
   footer { color: var(--muted); font-size: .8rem; padding: 1rem 1.5rem 2rem; }
@@ -69,104 +69,128 @@
 </head>
 <body>
 <header>
-  <h1>tokencut <span class="tag">nama resmi</span></h1>
-  <p class="sub">Perbandingan <strong>Before</strong> (baca file langsung ke chat utama) vs <strong>After</strong> (pack job + worker <code>low</code>). Estimasi token ≈ bytes/4 — bukan meter billing resmi.</p>
-  <p class="sub">Dihasilkan: 2026-09-18T04:29:51.677336+07:00 · Job: <code>20260918-042836-9507-bulk-reader</code></p>
+  <h1>tokencut <span class="tag">bench</span></h1>
+  <p class="sub"><strong>Before</strong> (dump corpus into main chat) vs <strong>After</strong> (pack job + <code>low</code> worker). Token estimate ≈ ceil(bytes/4) — not an official billing meter.</p>
+  <p class="sub">Generated: 2026-09-18T06:32:23+07:00 · Job: <code>20260918-063153-66408-bulk-reader</code> · Quality: 10/10 · Citation hits: 100%</p>
 </header>
 <main>
   <section class="hero">
     <div class="card before">
-      <div class="label">Before — token di chat utama</div>
-      <div class="metric">7,247</div>
-      <div class="label">28,991 bytes · 674 baris · 5 file</div>
+      <div class="label">Before — main-chat tokens</div>
+      <div class="metric">7,488</div>
+      <div class="label">29,949 bytes · 839 lines · 11 files</div>
     </div>
     <div class="card after">
-      <div class="label">After — token di chat utama</div>
-      <div class="metric">911</div>
-      <div class="label">prompt 1,060 B + jawaban 2,586 B</div>
+      <div class="label">After — main-chat tokens</div>
+      <div class="metric">774</div>
+      <div class="label">prompt 1,478 B + answer 1,616 B</div>
     </div>
     <div class="card save">
-      <div class="label">Pengurangan di chat utama</div>
-      <div class="metric">87.4%</div>
-      <div class="label">~6,336 token tidak masuk konteks mahal</div>
+      <div class="label">Main-chat reduction</div>
+      <div class="metric">89.7%</div>
+      <div class="label">~6,714 tokens kept off expensive context</div>
     </div>
   </section>
 
   <div class="barwrap card">
-    <div class="label">Skala relatif token di chat utama</div>
-    <div class="bar" title="before vs after">
+    <div class="label">Relative main-chat token scale</div>
+    <div class="bar" title="before">
       <span class="beforeb" style="width:100%"></span>
     </div>
-    <div class="bar" style="margin-top:.35rem">
-      <span class="afterb" style="width:12.6%"></span>
+    <div class="bar" style="margin-top:.35rem" title="after">
+      <span class="afterb" style="width:10%"></span>
     </div>
     <div class="legend">
-      <span><i class="dot b"></i>Before 7,247</span>
-      <span><i class="dot a"></i>After 911</span>
+      <span><span class="dot b"></span>Before 7,488</span>
+      <span><span class="dot a"></span>After 774</span>
     </div>
   </div>
 
-  <section class="grid" style="margin-top:1rem">
+  <section class="flow" style="margin:1.5rem 0">
     <div class="card">
-      <h2>Before — tanpa fork</h2>
-      <p class="label">Agent utama <code>Read</code> semua file → seluruh isi masuk konteks mahal.</p>
-      <ul>
-        <li>Token utama: <strong>7,247</strong></li>
-        <li>Tidak ada worker terpisah</li>
-        <li>Jawaban + sumber berbagi satu konteks</li>
-      </ul>
+      <h2>Before</h2>
+      <p class="label">Main agent Reads every corpus file into the conversation, then answers.</p>
+      <p>Main pays ~7,488 tokens for file bodies alone.</p>
+    </div>
+    <div class="arrow">→</div>
+    <div class="card">
+      <h2>After (tokencut)</h2>
+      <p class="label">Main packs a bulk-read job; a <code>low</code> worker Reads files and returns a short cited answer.</p>
+      <p>Main pays ~774 tokens (pack prompt + answer). Worker still uses ~7,488 cheap-tier corpus tokens.</p>
+    </div>
+  </section>
+
+  <div class="grid" style="margin-bottom:1.5rem">
+    <div class="card">
+      <h2>Corpus</h2>
+      <table>
+        <thead><tr><th>Path</th><th>Bytes</th><th>Lines</th><th>~Tok</th></tr></thead>
+        <tbody>
+        <tr><td><code>README.md</code></td><td>2,439</td><td>68</td><td>610</td></tr>
+<tr><td><code>docs/PUBLIC.md</code></td><td>1,818</td><td>46</td><td>455</td></tr>
+<tr><td><code>docs/SETUP.md</code></td><td>850</td><td>34</td><td>213</td></tr>
+<tr><td><code>docs/when-to-use.md</code></td><td>1,464</td><td>44</td><td>366</td></tr>
+<tr><td><code>scripts/install</code></td><td>3,066</td><td>107</td><td>767</td></tr>
+<tr><td><code>scripts/should-use-tokencut</code></td><td>4,185</td><td>89</td><td>1,047</td></tr>
+<tr><td><code>scripts/use-for-project</code></td><td>2,956</td><td>85</td><td>739</td></tr>
+<tr><td><code>scripts/lib/context.sh</code></td><td>2,314</td><td>68</td><td>579</td></tr>
+<tr><td><code>scripts/lib/delegate.sh</code></td><td>4,305</td><td>129</td><td>1,077</td></tr>
+<tr><td><code>scripts/lib/job-summary.sh</code></td><td>392</td><td>15</td><td>98</td></tr>
+<tr><td><code>config/roles.json</code></td><td>6,160</td><td>154</td><td>1,540</td></tr>
+
+        </tbody>
+      </table>
     </div>
     <div class="card">
-      <h2>After — pakai tokencut</h2>
-      <p class="label"><code>bulk-read</code> → JSON job → executor <code>model=low</code> baca file → hanya ringkasan kembali.</p>
-      <ul>
-        <li>Token utama: <strong>911</strong> (prompt + jawaban)</li>
-        <li>Worker low ~7,512 token input (korpus penuh, tarif lebih murah)</li>
-        <li>Sumber tidak diload ke chat utama</li>
-      </ul>
+      <h2>Quality rubric</h2>
+      <table>
+        <thead><tr><th>Criterion</th><th>Score</th></tr></thead>
+        <tbody>
+          <tr><td>Purpose</td><td>2/2</td></tr>
+          <tr><td>Install / toggle</td><td>2/2</td></tr>
+          <tr><td>When-to-use gate</td><td>2/2</td></tr>
+          <tr><td>Citations present</td><td>2/2</td></tr>
+          <tr><td>Citation spot-check</td><td>2/2</td></tr>
+          <tr><td><strong>Total</strong></td><td><strong>10/10</strong></td></tr>
+        </tbody>
+      </table>
+      <h2 style="margin-top:1rem">Spot-check</h2>
+      <table>
+        <thead><tr><th>Citation</th><th>Claim</th><th>Hit</th><th>Quote</th></tr></thead>
+        <tbody>
+        <tr><td><code>README.md:3</code></td><td>local token-saving workers, no Portal/AiKA</td><td>✓</td><td><code>Local **token-saving workers** for coding agents. Inspired by Spotify’s *shunt*, with **no Portal / AiKA**.</code></td></tr>
+<tr><td><code>scripts/install:13</code></td><td>installer calls toggle on</td><td>✓</td><td><code>&quot;$ROOT/scripts/toggle&quot; on &gt;/dev/null</code></td></tr>
+<tr><td><code>scripts/should-use-tokencut:26-30</code></td><td>use=false when toggled OFF</td><td>✓</td><td><code>  jq -n &#x27;{use:false,reason:&quot;tokencut toggled OFF&quot;}&#x27;</code></td></tr>
+
+        </tbody>
+      </table>
     </div>
-  </section>
+  </div>
 
-  <section class="card" style="margin-top:1rem">
-    <h2>Korpus uji</h2>
-    <table>
-      <thead><tr><th>File</th><th>Baris</th><th>Bytes</th><th>~Token</th></tr></thead>
-      <tbody><tr><td><code>/workspace/tokencut/README.md</code></td><td>54</td><td>2,213</td><td>553</td></tr><tr><td><code>/workspace/tokencut/README.upstream.md</code></td><td>192</td><td>9,125</td><td>2,281</td></tr><tr><td><code>/workspace/tokencut/scripts/lib/delegate.sh</code></td><td>70</td><td>2,206</td><td>551</td></tr><tr><td><code>/workspace/portal-ai-plugins/plugins/shunt/scripts/lib/aika.sh</code></td><td>166</td><td>6,322</td><td>1,580</td></tr><tr><td><code>/workspace/portal-ai-plugins/plugins/shunt/README.md</code></td><td>192</td><td>9,125</td><td>2,281</td></tr>
-      <tr><th>Total</th><th>674</th><th>28,991</th><th>7,247</th></tr>
-      </tbody>
-    </table>
-  </section>
+  <div class="card" style="margin-bottom:1.5rem">
+    <h2>Worker answer</h2>
+    <div class="answer">- **What:** tokencut is local token-saving workers for coding agents (Spotify shunt–inspired), with no Portal/AiKA — `README.md:3`<br/>
+- **Form:** installable dependency (CLI-like), not a chat product or browser extension — `README.md:5`<br/>
+- **Install:** `git clone` then `./scripts/install` — `README.md:19-21`; installer enables via `toggle on` and sets `TOKENCUT_ROOT` / `TOKENCUT_JOBS` — `scripts/install:13`, `scripts/install:26-27`<br/>
+- **Wire skills:** install symlinks `skills/` into Cursor (`~/.cursor/skills/tokencut`) and optional agent workflows — `scripts/install:48-52`, `docs/SETUP.md:15`<br/>
+- **Toggle:** `./scripts/toggle off|on`; verify with `./scripts/toggle status` — `README.md:45-46`, `README.md:33`<br/>
+- **Gate ON→workers:** coding asks on an existing user project (read/summarize/review/boilerplate) auto-route without magic words — `docs/when-to-use.md:10-16`, `README.md:53`<br/>
+- **Gate OFF→direct:** editing tokencut itself, greenfield scaffold, product Q&amp;A, or `toggle` OFF — `docs/when-to-use.md:29-32`, `README.md:54-55`<br/>
+- **Script gate:** `should-use-tokencut --prompt` returns `use=false` when settings disabled — `scripts/should-use-tokencut:26-30`; coding verbs → `use=true` — `scripts/should-use-tokencut:74-78`<br/>
+- **Pack path:** if `use=true`, `use-for-project` detects project files and resolves a job — `scripts/use-for-project:21-26`, `docs/PUBLIC.md:11-14`<br/>
+- **Roles:** e.g. `reader` effort/model `low` keeps source out of main chat — `config/roles.json:5-9`; `delegate.sh` packs jobs and emits `model_hint` for a low executor — `scripts/lib/delegate.sh:60-69`<br/>
+</div>
+  </div>
 
-  <section class="card" style="margin-top:1rem">
-    <h2>Cuplikan jawaban worker (After)</h2>
-    <div class="answer">- /workspace/tokencut/README.md — Type: Markdown README. Purpose: documents the tokencut fork, which replaces Portal/AiKA with a low-cost local executor. Main sections: &quot;How it works&quot; (line 7), &quot;Install / paths&quot; (line 16), &quot;Commands&quot; (line 25), &quot;Env&quot; (line 38), &quot;What this is not&quot; (line 46), and &quot;Upstream&quot; (line 52).<br>- /workspace/tokencut/README.upstream.md — Type: Markdown README. Purpose: documents the original shunt Claude Code plugin, its AiKA delegation architecture, setup, usage, hooks, configuration, evaluations, benchmarks, and limitations. Main sections: &quot;How it works&quot; (line 5), &quot;Prerequisites&quot; (line 17), &quot;Plugin structure&quot; (line 60), &quot;Scripts&quot; (line 90), &quot;bulk-read&quot; (line 92), &quot;code-write&quot; (line 103), &quot;One shot per call&quot; (line 118), &quot;Hooks&quot; (line 126), &quot;check-file-size (Read hook)&quot; (line 128), &quot;check-bash-read (Bash hook)&quot; (line 135), &quot;Configuration&quot; (line 143), &quot;What doesn&#x27;t get delegated&quot; (line 157), &quot;Evals&quot; (line 165), &quot;Benchmarks&quot; (line 175), and &quot;Known limitations&quot; (line 188).<br>- /workspace/tokencut/scripts/lib/delegate.sh — Type: Bash library. Purpose: validates local prerequisites, creates executor job directories and prompt/manifest paths, checks input readability, and emits low-effort executor job JSON. Main functions: &quot;tokencut_preflight()&quot; (line 13), &quot;tokencut_new_job()&quot; (line 22), &quot;tokencut_check_readable()&quot; (line 31), and &quot;tokencut_emit_job()&quot; (line 43).<br>- /workspace/portal-ai-plugins/plugins/shunt/scripts/lib/aika.sh — Type: Bash library. Purpose: provides shared Portal CLI/AiKA delegation plumbing, temporary-file cleanup, preflight checks, error reporting, payload-size enforcement, timeout handling, and one-shot mode invocation. Main functions: &quot;shunt_portal()&quot; (line 42), &quot;shunt_tmpfile()&quot; (line 48), &quot;shunt_preflight()&quot; (line 56), &quot;shunt_report_error()&quot; (line 74), and &quot;shunt_invoke()&quot; (line 96).<br>- /workspace/portal-ai-plugins/plugins/shunt/README.md — Type: Markdown README. Purpose: documents the original shunt Claude Code plugin, its AiKA delegation architecture, setup, usage, hooks, configuration, evaluations, benchmarks, and limitations. Main sections: &quot;How it works&quot; (line 5), &quot;Prerequisites&quot; (line 17), &quot;Plugin structure&quot; (line 60), &quot;Scripts&quot; (line 90), &quot;bulk-read&quot; (line 92), &quot;code-write&quot; (line 103), &quot;One shot per call&quot; (line 118), &quot;Hooks&quot; (line 126), &quot;check-file-size (Read hook)&quot; (line 128), &quot;check-bash-read (Bash hook)&quot; (line 135), &quot;Configuration&quot; (line 143), &quot;What doesn&#x27;t get delegated&quot; (line 157), &quot;Evals&quot; (line 165), &quot;Benchmarks&quot; (line 175), and &quot;Known limitations&quot; (line 188).</div>
-  </section>
-
-  <section class="card" style="margin-top:1rem">
-    <h2>Cara membedakan hasil uji</h2>
-    <div class="flow">
-      <div>
-        <strong>Tanpa fork</strong>
-        <p class="label">Transcript chat utama memuat isi file panjang / banyak baris kode mentah.</p>
-      </div>
-      <div class="arrow">→</div>
-      <div>
-        <strong>Dengan fork</strong>
-        <p class="label">Ada job di <code>/workspace/.tokencut/jobs/</code>, manifest JSON, dan chat utama hanya ringkasan pendek.</p>
-      </div>
-    </div>
-    <p class="label" style="margin-top:1rem">Checklist cepat: (1) apakah file sumber muncul penuh di chat utama? (2) apakah ada <code>manifest.json</code> + <code>PROMPT.md</code>? (3) apakah jawaban datang dari worker <code>low</code>?</p>
-  </section>
-
-  <section class="card" style="margin-top:1rem">
-    <h2>Catatan</h2>
+  <div class="card">
+    <h2>Caveats</h2>
     <ul class="caveats">
-      <li>Token counts are approximate (bytes/4), not a provider billing meter.</li><li>Worker still processes the full corpus on the low tier; savings are mainly on the expensive main chat.</li><li>This is not Spotify&#x27;s 90% AiKA figure — that needs Portal + AiKA pricing.</li><li>Quality depends on the worker answer; spot-check line numbers before editing.</li>
+      <li>Token counts are approximate (ceil(bytes/4)), not a provider billing meter.</li><li>Worker still processes the full corpus on the cheap/low tier; reported savings are on expensive main-chat context.</li><li>This is not Spotify&#x27;s published AiKA savings figure — that needs Portal + AiKA pricing.</li><li>Quality depends on the worker answer; spot-check cited line numbers before editing.</li>
     </ul>
-  </section>
+  </div>
 </main>
 <footer>
-  Fork kerja: <code>/workspace/tokencut</code> · Artefak: <code>/workspace/tokencut/bench/artifacts/</code>
+  Artifacts under <code>bench/</code> · See <code>RESULTS.md</code> and <code>artifacts/comparison.json</code>.
 </footer>
 </body>
 </html>
