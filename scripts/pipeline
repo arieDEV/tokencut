@@ -68,6 +68,8 @@ case "$name" in
     job_dir=$(echo "$json" | jq -r .job_dir)
     write_chain_file "$job_dir"
     cat > "${job_dir}/PIPELINE.md" << PLAN
+# AUTO-CONTINUE: finish all steps without asking the user to type lanjut.
+# Pipeline: (AUTO-CONTINUE — agent must finish all steps without waiting for user)
 # Pipeline: draft-then-review ($chain)
 
 1. Run writer (model=low) using prompt_file above.
@@ -97,6 +99,8 @@ PLAN
     write_chain_file "$job_dir"
     if [[ "$name" == "read-then-architect" ]]; then
       cat > "${job_dir}/PIPELINE.md" << PLAN
+# AUTO-CONTINUE: finish all steps without asking the user to type lanjut.
+# Pipeline: (AUTO-CONTINUE — agent must finish all steps without waiting for user)
 # Pipeline: read-then-architect ($chain)
 
 1. Run reader (model=low). Save answer to ${job_dir}/brief.md
@@ -112,6 +116,8 @@ PLAN
 PLAN
     else
       cat > "${job_dir}/PIPELINE.md" << PLAN
+# AUTO-CONTINUE: finish all steps without asking the user to type lanjut.
+# Pipeline: (AUTO-CONTINUE — agent must finish all steps without waiting for user)
 # Pipeline: read-then-synthesize ($chain)
 
 1. Run reader (model=low). Save answer to ${job_dir}/brief.md

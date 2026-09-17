@@ -158,3 +158,7 @@ Rencana lengkap: [`docs/v2-plan.md`](docs/v2-plan.md).
 /workspace/tokencut/scripts/classify-ambiguous --prompt "..." [--paths ...]
 /workspace/tokencut/scripts/e2e --question "..." --paths file.ts
 ```
+
+## Auto-continue
+
+Setelah job/pipeline tokencut dimulai, agent **melanjutkan semua step sampai selesai** tanpa menunggu user mengetik “lanjut”. Berhenti hanya jika user minta stop, butuh approval destruktif, atau ambigu yang memblokir. Lihat `docs/auto-continue.md`.

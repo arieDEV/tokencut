@@ -24,6 +24,8 @@ prompt=$(echo "$json" | jq -r .prompt_file)
 cat << OUT
 {
   "kind": "tokencut-e2e",
+  "auto_continue": true,
+  "auto_continue": true,
   "pipeline": "read-then-synthesize",
   "reader_job_id": "$job_id",
   "reader_job_dir": "$job_dir",
@@ -40,4 +42,4 @@ cat << OUT
 OUT
 
 echo "[tokencut:e2e] reader packed → $job_dir" >&2
-echo "[tokencut:e2e] PIPELINE.md + next[] describe the remaining agent steps" >&2
+echo "[tokencut:e2e] AUTO-CONTINUE: agent must run next[] to completion without waiting for user" >&2
