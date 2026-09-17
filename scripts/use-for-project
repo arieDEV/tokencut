@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 # User-facing: "pakai tokencut" without caring about paths.
-# Detects project, then resolve-prompt (or explain-area if clear).
-# Usage:
-#   use-for-project --prompt "Jelaskan arsitektur singkat"
-#   use-for-project --prompt "..." --project /workspace/my-app
+# Detects project under /workspace (excludes tokencut), packs a job.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 prompt=""
@@ -28,30 +25,61 @@ if [[ "$use" != "true" ]]; then
   exit 0
 fi
 
+det="{}"
 if [[ -z "$project" ]]; then
   det=$("$ROOT/scripts/detect-project" --json)
   project=$(echo "$det" | jq -r .primary)
   if [[ -z "$project" || "$project" == "null" ]]; then
-    jq -n --argjson det "$det" '{ok:false,action:"need_project",detect:$det,note:"No project under /workspace yet — clone/open a repo, then retry. User should not invent paths."}'
+    jq -n --argjson det "$det" \
+      '{ok:false,action:"need_project",detect:$det,note:"Belum ada project user di /workspace. Clone/buka repo dulu — path urusan agent."}'
     exit 0
-  fi
-  n=$(echo "$det" | jq '.projects|length')
-  if [[ "$n" -gt 1 ]]; then
-    # Prefer primary but surface alternatives for agent to pick if needed
-    :
   fi
 fi
 
-# Prefer a few entry files if obvious, else project root as path hint
-paths=("$project")
-for cand in README.md package.json src app lib; do
-  if [[ -e "$project/$cand" ]]; then
-    paths+=("$project/$cand")
-  fi
+# Collect FILES only (role-run rejects directories)
+paths=()
+add_file() {
+  local f="$1"
+  [[ -f "$f" && -r "$f" ]] || return 0
+  paths+=("$f")
+}
+# Prefer entrypoints
+for cand in README.md readme.md package.json pyproject.toml src/index.ts src/index.js src/main.ts src/main.py; do
+  add_file "$project/$cand"
 done
+# A few source files under src/ or root
+while IFS= read -r f; do
+  add_file "$f"
+  [[ ${#paths[@]} -ge 8 ]] && break
+done < <(find "$project" -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.py' -o -name '*.go' \) \
+  ! -path '*/node_modules/*' ! -path '*/.git/*' ! -path '*/dist/*' 2>/dev/null | head -12)
 
-# Cap paths list
-args=(--prompt "$prompt" --paths "${paths[@]:0:6}")
-res=$("$ROOT/scripts/resolve-prompt" "${args[@]}" 2>/tmp/ufp.err)
-echo "$res" | jq --arg project "$project" --argjson gate "$gate" \
-  '. + {ok:true,project:$project,gate:$gate,note:"AUTO-CONTINUE from here (classifier or role worker)"}'
+if [[ ${#paths[@]} -eq 0 ]]; then
+  # last resort: any readable text file at top
+  while IFS= read -r f; do add_file "$f"; [[ ${#paths[@]} -ge 5 ]] && break
+  done < <(find "$project" -maxdepth 2 -type f ! -path '*/.git/*' 2>/dev/null | head -10)
+fi
+
+if [[ ${#paths[@]} -eq 0 ]]; then
+  jq -n --arg project "$project" \
+    '{ok:false,action:"need_files",project:$project,note:"Project found but no readable source files yet"}'
+  exit 0
+fi
+
+# Dedup paths
+mapfile -t paths < <(printf '%s\n' "${paths[@]}" | awk '!a[$0]++')
+
+set +e
+res=$("$ROOT/scripts/resolve-prompt" --prompt "$prompt" --paths "${paths[@]}" 2>/tmp/ufp.err)
+rc=$?
+set -e
+
+if [[ -z "$res" ]]; then
+  jq -n --arg err "$(cat /tmp/ufp.err 2>/dev/null)" --arg project "$project" \
+    '{ok:false,action:"error",project:$project,error:$err}'
+  exit 1
+fi
+
+echo "$res" | jq --arg project "$project" --argjson gate "$gate" --argjson paths "$(printf '%s\n' "${paths[@]}" | jq -R . | jq -s -c .)" \
+  '. + {ok:(.ok // true),project:$project,gate:$gate,detected_paths:$paths,note:(.note // "AUTO-CONTINUE from here")}'
+exit 0
