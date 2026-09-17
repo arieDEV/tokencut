@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Pack a full explain-area style e2e chain and print agent steps + badges.
+# Usage: e2e --question "..." --paths f1 [f2...]
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+question=""
+paths=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --question) question="$2"; shift 2 ;;
+    --paths) shift; while [[ $# -gt 0 && ! "$1" =~ ^-- ]]; do paths+=("$1"); shift; done ;;
+    -h|--help) echo "Usage: e2e --question \"...\" --paths f1 [f2...]"; exit 0 ;;
+    *) echo "Unknown: $1" >&2; exit 2 ;;
+  esac
+done
+[[ -n "$question" && ${#paths[@]} -gt 0 ]] || { echo "Need --question and --paths" >&2; exit 2; }
+
+"$ROOT/scripts/toggle" on >/dev/null
+json=$("$ROOT/scripts/cmd" explain-area --question "$question" --paths "${paths[@]}" 2>/tmp/e2e.err)
+job_dir=$(echo "$json" | jq -r .job_dir)
+job_id=$(echo "$json" | jq -r .job_id)
+prompt=$(echo "$json" | jq -r .prompt_file)
+
+cat << OUT
+{
+  "kind": "tokencut-e2e",
+  "pipeline": "read-then-synthesize",
+  "reader_job_id": "$job_id",
+  "reader_job_dir": "$job_dir",
+  "reader_prompt_file": "$prompt",
+  "reader_model": "low",
+  "next": [
+    "Task executor model=low with full contents of reader_prompt_file; save answer to $job_dir/brief.md",
+    "Pack synthesizer: $ROOT/scripts/role-run --role synthesizer --question $(jq -rn --arg q "$question" '$q|@sh') --brief $job_dir/brief.md",
+    "Task executor model=high with synthesizer prompt; save answer.md",
+    "Print badge: $ROOT/scripts/badge --chain reader:low,synthesizer:high --job-id <synth_job_id>"
+  ],
+  "badge_preview": "$($ROOT/scripts/badge --chain reader:low,synthesizer:high --job-id "$job_id")"
+}
+OUT
+
+echo "[tokencut:e2e] reader packed → $job_dir" >&2
+echo "[tokencut:e2e] PIPELINE.md + next[] describe the remaining agent steps" >&2

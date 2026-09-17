@@ -276,6 +276,7 @@ def main() -> int:
     ap.add_argument("--spec")
     ap.add_argument("--pack", action="store_true")
     ap.add_argument("--force-pack", action="store_true")
+    ap.add_argument("--classify", action="store_true", help="If ambiguous, also pack a low classifier job")
     ap.add_argument("--explain", action="store_true")
     args = ap.parse_args()
 
@@ -298,6 +299,26 @@ def main() -> int:
             )
         else:
             rec = pack_job(rec, args)
+
+
+    if args.classify and rec.get("ambiguous"):
+        cmd = [str(ROOT / "scripts" / "classify-ambiguous"), "--prompt", args.prompt]
+        if args.paths:
+            cmd += ["--paths", *args.paths]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode == 0:
+            try:
+                rec["classifier_job"] = json.loads(proc.stdout)
+            except json.JSONDecodeError:
+                m = re.search(r"\{[\s\S]*\}\s*$", proc.stdout)
+                if m:
+                    rec["classifier_job"] = json.loads(m.group(0))
+            rec["agent_instruction"] = (
+                (rec.get("agent_instruction") or "")
+                + " Prompt is ambiguous: run classifier_job with model=low, then re-pack the chosen role."
+            )
+        else:
+            rec["classifier_error"] = (proc.stderr or proc.stdout)[:500]
 
     print(json.dumps(rec, indent=2))
     return 0

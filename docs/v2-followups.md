@@ -8,3 +8,9 @@ Done in this pass:
 Still optional later:
 - Low-model classifier for ambiguous prompts only
 - External connectors (out of tokencut scope)
+
+## Added next
+
+- `scripts/classify-ambiguous` — pack low classifier job (JSON role/model)
+- `smart-route --classify` — when ambiguous, attach `classifier_job`
+- `scripts/e2e` — pack explain-area chain + print agent next steps + badge preview

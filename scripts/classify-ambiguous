@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# Pack a low-cost classifier job for an ambiguous user prompt.
+# The agent should Task model=low with PROMPT.md; worker must reply JSON only:
+#   {"role":"...","model_hint":"low|medium|high","reason":"..."}
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=lib/delegate.sh
+. "$ROOT/scripts/lib/delegate.sh"
+
+prompt=""
+paths=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --prompt) prompt="$2"; shift 2 ;;
+    --paths)
+      shift
+      while [[ $# -gt 0 && ! "$1" =~ ^-- ]]; do paths+=("$1"); shift; done
+      ;;
+    -h|--help)
+      echo "Usage: classify-ambiguous --prompt \"...\" [--paths f1 f2]"
+      exit 0
+      ;;
+    *) echo "Unknown: $1" >&2; exit 2 ;;
+  esac
+done
+[[ -n "$prompt" ]] || { echo "Error: --prompt required" >&2; exit 2; }
+
+tokencut_preflight || exit 1
+tokencut_new_job "classify-ambiguous"
+
+roles=$(jq -r '.roles | keys | join(", ")' "$TOKENCUT_ROLES_FILE")
+
+{
+  echo "# tokencut classifier (low)"
+  echo
+  echo "You classify which tokencut role should handle the user prompt."
+  echo "Known roles: $roles"
+  echo
+  echo "Reply with ONLY compact JSON (no markdown fences):"
+  echo '{"role":"<one role>","model_hint":"low|medium|high","reason":"<one short sentence>"}'
+  echo
+  echo "Rules:"
+  echo "- Prefer reader for bulk file understanding."
+  echo "- Prefer writer for generating code from a reference."
+  echo "- Prefer reviewer for critique of a draft/diff."
+  echo "- Prefer architect for design tradeoffs (brief inputs)."
+  echo "- Prefer debugger for errors/logs/stack traces."
+  echo "- Prefer synthesizer only when merging prior worker outputs."
+  echo "- model_hint must match the role's usual tier when unsure."
+  echo
+  tokencut_brain_section || true
+  echo "## User prompt"
+  echo
+  echo "$prompt"
+  echo
+  if [[ ${#paths[@]} -gt 0 ]]; then
+    echo "## Paths mentioned"
+    echo
+    for p in "${paths[@]}"; do echo "- \`$p\`"; done
+    echo
+  fi
+} > "$PROMPT_FILE"
+
+tokencut_emit_job "classify-ambiguous" "classify ambiguous prompt" "low" "low" "classifier"

@@ -150,3 +150,11 @@ Rencana lengkap: [`docs/v2-plan.md`](docs/v2-plan.md).
 /workspace/tokencut/scripts/toggle inject-lessons on|off
 /workspace/tokencut/tests/smart-route-golden.sh
 ```
+
+### Ambiguous prompts & e2e
+
+```bash
+/workspace/tokencut/scripts/smart-route --prompt "tolong bantu" --classify
+/workspace/tokencut/scripts/classify-ambiguous --prompt "..." [--paths ...]
+/workspace/tokencut/scripts/e2e --question "..." --paths file.ts
+```
