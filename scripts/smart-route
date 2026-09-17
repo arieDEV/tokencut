@@ -175,7 +175,9 @@ def build_recommendation(args: argparse.Namespace, rules: dict) -> dict:
     else:
         winner = ranked[0]
 
-    ambiguous = conf < float(rules.get("ambiguous_below", 0.4))
+    ambiguous_below = float(rules.get("ambiguous_below", 0.4))
+    min_pack = float(rules.get("min_confidence_auto_pack", 0.55))
+    ambiguous = conf < max(ambiguous_below, min_pack - 0.05)
     n_files, total_bytes = corpus_stats(args.paths or [])
 
     missing: list[str] = []
@@ -301,7 +303,7 @@ def main() -> int:
             rec = pack_job(rec, args)
 
 
-    if args.classify and rec.get("ambiguous"):
+    if args.classify and (rec.get("ambiguous") or not rec.get("can_auto_pack")):
         cmd = [str(ROOT / "scripts" / "classify-ambiguous"), "--prompt", args.prompt]
         if args.paths:
             cmd += ["--paths", *args.paths]
