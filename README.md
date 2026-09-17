@@ -112,3 +112,16 @@ Every user-facing answer that used tokencut **must** end with a badge line so hu
 ```
 
 Put the badge as the **last line** of the chat reply. Never claim token savings without a ✂️ badge and job id.
+
+## On / off
+
+```bash
+/workspace/tokencut/scripts/toggle status   # lihat status
+/workspace/tokencut/scripts/toggle on       # hidupkan tokencut
+/workspace/tokencut/scripts/toggle off      # matikan (agent jawab di main chat)
+/workspace/tokencut/scripts/toggle badge on|off
+/workspace/tokencut/scripts/toggle smart-route on|off
+```
+
+State file: `config/settings.json` (`enabled`, `badge`, `smart_route`).
+When `enabled=false`, `role-run` / `bulk-read` / `code-write` / `smart-route` refuse to pack jobs.

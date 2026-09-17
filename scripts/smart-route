@@ -15,6 +15,17 @@ RULES_PATH = Path(os.environ.get("TOKENCUT_ROUTER_RULES", ROOT / "config" / "rou
 ROLE_RUN = ROOT / "scripts" / "role-run"
 
 
+
+def assert_enabled(rules_unused=None) -> None:
+    settings_path = ROOT / "config" / "settings.json"
+    if not settings_path.is_file():
+        return
+    settings = json.loads(settings_path.read_text())
+    if settings.get("enabled") is False:
+        raise SystemExit("tokencut is OFF. Run: /workspace/tokencut/scripts/toggle on")
+    if settings.get("smart_route") is False:
+        raise SystemExit("smart-route is OFF. Run: /workspace/tokencut/scripts/toggle smart-route on")
+
 def load_rules() -> dict:
     with RULES_PATH.open() as f:
         return json.load(f)
@@ -239,6 +250,7 @@ def main() -> int:
     ap.add_argument("--explain", action="store_true")
     args = ap.parse_args()
 
+    assert_enabled()
     rules = load_rules()
     rec = build_recommendation(args, rules)
 

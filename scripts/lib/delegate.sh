@@ -16,6 +16,7 @@ tokencut_preflight() {
     return 1
   }
   mkdir -p "$TOKENCUT_JOBS"
+  tokencut_require_enabled || return 1
 }
 
 tokencut_new_job() {
@@ -101,4 +102,25 @@ tokencut_list_roles() {
     .roles | to_entries[] |
     "\(.key)\t\(.value.effort)/\(.value.model_hint)\t\(.value.title)\t\(.value.purpose)"
   ' "$TOKENCUT_ROLES_FILE"
+}
+
+TOKENCUT_SETTINGS_FILE="${TOKENCUT_SETTINGS_FILE:-$TOKENCUT_ROOT/config/settings.json}"
+
+tokencut_settings_get() {
+  local key="$1"
+  if [[ ! -f "$TOKENCUT_SETTINGS_FILE" ]]; then
+    echo "true"
+    return 0
+  fi
+  # Do NOT use // — in jq, false is falsy so (false // true) => true
+  jq -r --arg k "$key" 'if has($k) then .[$k] else true end' "$TOKENCUT_SETTINGS_FILE"
+}
+
+tokencut_require_enabled() {
+  local enabled
+  enabled=$(tokencut_settings_get enabled)
+  if [[ "$enabled" != "true" ]]; then
+    echo "Error: tokencut is OFF. Turn on with: $TOKENCUT_ROOT/scripts/toggle on" >&2
+    return 1
+  fi
 }

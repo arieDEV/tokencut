@@ -18,6 +18,16 @@ MODEL_EMOJI = {
     "medium": "💛",
     "high": "❤️",
 }
+
+def badge_enabled() -> bool:
+    sp = Path("/workspace/tokencut/config/settings.json")
+    if not sp.is_file():
+        return True
+    try:
+        return json.loads(sp.read_text()).get("badge", True) is not False
+    except Exception:
+        return True
+
 ROLE_EMOJI = {
     "reader": "📖",
     "writer": "✍️",
@@ -54,6 +64,10 @@ def main() -> int:
 
     if args.none:
         print(badge_main())
+        return 0
+
+    if not badge_enabled() and not args.none:
+        print("🧠 main · badge=OFF")
         return 0
 
     role = args.role
