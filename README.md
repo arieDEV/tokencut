@@ -52,3 +52,27 @@ Skills on this bot: `Bulk file read`, `Boilerplate code write` (point at these s
 ## Upstream
 
 See `README.upstream.md` for the original shunt design and benchmarks.
+
+## Multi-role
+
+Roles live in `config/roles.json`. Pack with `scripts/role-run`; optional pipelines via `scripts/pipeline`.
+
+| Role | Effort / model | Job |
+| --- | --- | --- |
+| `reader` | low | Bulk-read / summarize files |
+| `writer` | low | Boilerplate from a reference |
+| `reviewer` | medium | Critique a draft or diff |
+| `architect` | high | Tradeoffs on a short brief (not huge corpora) |
+| `debugger` | medium | Hypotheses from logs + source |
+
+```bash
+/workspace/tokencut/scripts/role-run --list
+
+/workspace/tokencut/scripts/role-run --role reviewer \
+  --question "Any bugs?" --paths src/foo.ts --draft /tmp/draft.ts
+
+/workspace/tokencut/scripts/pipeline --pack draft-then-review \
+  --spec "Add tests" --reference tests/a_test.ts --target tests/b_test.ts
+```
+
+The JSON manifest includes `role`, `effort`, and `model_hint` so the agent dispatches the matching executor tier.

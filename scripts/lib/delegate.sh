@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Shared plumbing for tokencut: pack a job for a low-cost executor.
-# No Portal, no AiKA — the coding agent runs an executor with model=low
-# using the prompt file this library writes.
+# Shared plumbing for tokencut: pack a job for a role-scoped executor.
+# No Portal, no AiKA — the coding agent dispatches an executor using model_hint.
 
 set -euo pipefail
 
@@ -9,6 +8,7 @@ TOKENCUT_ROOT="${TOKENCUT_ROOT:-/workspace/tokencut}"
 TOKENCUT_JOBS="${TOKENCUT_JOBS:-/workspace/.tokencut/jobs}"
 TOKENCUT_MAX_BYTES="${TOKENCUT_MAX_BYTES:-2000000}"
 TOKENCUT_MIN_LINES="${TOKENCUT_MIN_LINES:-350}"
+TOKENCUT_ROLES_FILE="${TOKENCUT_ROLES_FILE:-$TOKENCUT_ROOT/config/roles.json}"
 
 tokencut_preflight() {
   command -v jq >/dev/null 2>&1 || {
@@ -18,7 +18,6 @@ tokencut_preflight() {
   mkdir -p "$TOKENCUT_JOBS"
 }
 
-# Create a unique job directory. Sets JOB_DIR, JOB_ID, PROMPT_FILE, MANIFEST_FILE.
 tokencut_new_job() {
   local mode="$1"
   JOB_ID="$(date +%Y%m%d-%H%M%S)-$$-${mode}"
@@ -38,33 +37,68 @@ tokencut_check_readable() {
   done
 }
 
-# Emit machine-readable job JSON to stdout (for the agent).
-# Human notes go to stderr.
+# Load role fields into ROLE_TITLE ROLE_EFFORT ROLE_MODEL ROLE_SYSTEM
+tokencut_load_role() {
+  local role="$1"
+  if [[ ! -f "$TOKENCUT_ROLES_FILE" ]]; then
+    echo "Error: roles file missing: $TOKENCUT_ROLES_FILE" >&2
+    return 1
+  fi
+  if ! jq -e --arg r "$role" '.roles[$r]' "$TOKENCUT_ROLES_FILE" >/dev/null; then
+    echo "Error: unknown role '$role'. Known:" >&2
+    jq -r '.roles | keys[]' "$TOKENCUT_ROLES_FILE" | sed 's/^/  - /' >&2
+    return 1
+  fi
+  ROLE_TITLE=$(jq -r --arg r "$role" '.roles[$r].title' "$TOKENCUT_ROLES_FILE")
+  ROLE_EFFORT=$(jq -r --arg r "$role" '.roles[$r].effort' "$TOKENCUT_ROLES_FILE")
+  ROLE_MODEL=$(jq -r --arg r "$role" '.roles[$r].model_hint' "$TOKENCUT_ROLES_FILE")
+  ROLE_SYSTEM=$(jq -r --arg r "$role" '.roles[$r].system' "$TOKENCUT_ROLES_FILE")
+  ROLE_PURPOSE=$(jq -r --arg r "$role" '.roles[$r].purpose' "$TOKENCUT_ROLES_FILE")
+}
+
+# tokencut_emit_job <mode> <summary> [effort] [model_hint] [role]
 tokencut_emit_job() {
   local mode="$1"
   local summary="$2"
+  local effort="${3:-low}"
+  local model_hint="${4:-low}"
+  local role="${5:-}"
+
+  local instruction
+  instruction="Dispatch one executor with model=${model_hint} (effort=${effort}). Pass the full contents of prompt_file as the task. Do not load bulky source files into the main chat unless this role explicitly requires tiny key files. Return only the worker answer to the user."
 
   jq -n \
     --arg kind "tokencut-job" \
     --arg mode "$mode" \
-    --arg effort "low" \
+    --arg effort "$effort" \
+    --arg model_hint "$model_hint" \
+    --arg role "$role" \
     --arg job_id "$JOB_ID" \
     --arg job_dir "$JOB_DIR" \
     --arg prompt_file "$PROMPT_FILE" \
     --arg summary "$summary" \
+    --arg agent_instruction "$instruction" \
     '{
       kind: $kind,
       mode: $mode,
+      role: (if $role == "" then null else $role end),
       effort: $effort,
-      model_hint: "low",
+      model_hint: $model_hint,
       job_id: $job_id,
       job_dir: $job_dir,
       prompt_file: $prompt_file,
-      agent_instruction: "Dispatch one executor with model=low. Pass the full contents of prompt_file as the task. Do not load the listed source files into the main chat. Return only the worker answer to the user.",
+      agent_instruction: $agent_instruction,
       summary: $summary
     }' | tee "$MANIFEST_FILE"
 
-  echo "[tokencut: job $JOB_ID | mode=$mode | effort=low]" >&2
+  echo "[tokencut: job $JOB_ID | role=${role:-$mode} | effort=$effort | model=$model_hint]" >&2
   echo "[tokencut: prompt → $PROMPT_FILE]" >&2
-  echo "[tokencut: next → Task executor model=low with that prompt]" >&2
+  echo "[tokencut: next → Task executor model=$model_hint with that prompt]" >&2
+}
+
+tokencut_list_roles() {
+  jq -r '
+    .roles | to_entries[] |
+    "\(.key)\t\(.value.effort)/\(.value.model_hint)\t\(.value.title)\t\(.value.purpose)"
+  ' "$TOKENCUT_ROLES_FILE"
 }

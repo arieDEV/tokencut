@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# Describe or validate a named tokencut pipeline (agent still runs each step).
+# Usage:
+#   pipeline --list
+#   pipeline --show draft-then-review
+#   pipeline --pack draft-then-review --spec "..." --reference r --target t
+#     → prints step-1 writer job JSON; writes PIPELINE.md with next-step instructions
+
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROLES="$ROOT/config/roles.json"
+# shellcheck source=lib/delegate.sh
+. "$(cd "$(dirname "$0")" && pwd)/lib/delegate.sh"
+TOKENCUT_ROLES_FILE="$ROLES"
+
+cmd_list() {
+  jq -r '.pipelines | to_entries[] | "\(.key)\t\(.value.description)\tsteps=\(.value.steps|join("→"))"' "$ROLES"
+}
+
+name=""
+spec=""
+reference=""
+target=""
+question=""
+paths=()
+brief=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --list) cmd_list; exit 0 ;;
+    --show)
+      jq --arg n "$2" '.pipelines[$n] // empty' "$ROLES"
+      exit 0
+      ;;
+    --pack) name="$2"; shift 2 ;;
+    --spec) spec="$2"; shift 2 ;;
+    --reference) reference="$2"; shift 2 ;;
+    --target) target="$2"; shift 2 ;;
+    --question) question="$2"; shift 2 ;;
+    --brief) brief="$2"; shift 2 ;;
+    --paths)
+      shift
+      while [[ $# -gt 0 && ! "$1" =~ ^-- ]]; do paths+=("$1"); shift; done
+      ;;
+    -h|--help)
+      sed -n '2,10p' "$0" | tr -d '#'
+      exit 0
+      ;;
+    *) echo "Unknown arg: $1" >&2; exit 2 ;;
+  esac
+done
+
+[[ -n "$name" ]] || { echo "Error: --pack <pipeline> required (or --list/--show)" >&2; exit 1; }
+jq -e --arg n "$name" '.pipelines[$n]' "$ROLES" >/dev/null || {
+  echo "Error: unknown pipeline '$name'" >&2; cmd_list >&2; exit 1; }
+
+steps=()
+while IFS= read -r s; do steps+=("$s"); done < <(jq -r --arg n "$name" '.pipelines[$n].steps[]' "$ROLES")
+step1="${steps[0]}"
+step2="${steps[1]:-}"
+
+case "$name" in
+  draft-then-review)
+    [[ -n "$spec" && -n "$reference" ]] || {
+      echo "Error: draft-then-review needs --spec and --reference [--target]" >&2; exit 1; }
+    # Pack writer first; instruct agent to then run reviewer on target/draft
+    args=(--role writer --spec "$spec" --reference "$reference")
+    [[ -n "$target" ]] && args+=(--target "$target")
+    json=$("$ROOT/scripts/role-run" "${args[@]}")
+    echo "$json"
+    job_dir=$(echo "$json" | jq -r .job_dir)
+    cat > "${job_dir}/PIPELINE.md" << PLAN
+# Pipeline: draft-then-review
+
+1. Run the writer job above (model=low) using prompt_file.
+2. After writer finishes, pack reviewer:
+   $ROOT/scripts/role-run --role reviewer \\
+     --question "Review the draft for bugs, risks, and missing tests." \\
+     --paths ${target:-$reference} \\
+     ${target:+--draft $target}
+3. Run reviewer with model=medium from that new manifest.
+4. Return both: writer summary + reviewer verdict to the user.
+PLAN
+    echo "[tokencut: pipeline $name → wrote ${job_dir}/PIPELINE.md]" >&2
+    ;;
+  read-then-architect)
+    [[ -n "$question" && ${#paths[@]} -gt 0 ]] || {
+      echo "Error: read-then-architect needs --question and --paths" >&2; exit 1; }
+    json=$("$ROOT/scripts/role-run" --role reader --question "$question" --paths "${paths[@]}")
+    echo "$json"
+    job_dir=$(echo "$json" | jq -r .job_dir)
+    cat > "${job_dir}/PIPELINE.md" << PLAN
+# Pipeline: read-then-architect
+
+1. Run the reader job above (model=low). Save the answer to a brief file, e.g. ${job_dir}/brief.md
+2. Pack architect:
+   $ROOT/scripts/role-run --role architect \\
+     --question "$question" \\
+     --brief ${job_dir}/brief.md
+3. Run architect with model=high.
+4. Return architect recommendation to the user (optionally attach reader brief).
+PLAN
+    echo "[tokencut: pipeline $name → wrote ${job_dir}/PIPELINE.md]" >&2
+    ;;
+  *)
+    echo "Error: packer not implemented for $name" >&2
+    exit 1
+    ;;
+esac

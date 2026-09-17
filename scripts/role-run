@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+# Pack a tokencut multi-role job.
+# Usage:
+#   role-run --list
+#   role-run --role reader --question "..." --paths f1 f2
+#   role-run --role writer --spec "..." --reference ref.ts [--target out.ts]
+#   role-run --role reviewer --question "..." --paths f1 [--draft draft.md]
+#   role-run --role architect --question "..." [--brief brief.md] [--paths f1]
+#   role-run --role debugger --question "..." --paths f1 [--log log.txt]
+
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=lib/delegate.sh
+. "$(cd "$(dirname "$0")" && pwd)/lib/delegate.sh"
+TOKENCUT_ROLES_FILE="$ROOT/config/roles.json"
+
+role=""
+question=""
+spec=""
+reference=""
+target=""
+draft=""
+brief=""
+logf=""
+paths=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --list|-l)
+      tokencut_preflight
+      printf '%s\t%s\t%s\t%s\n' "ROLE" "EFFORT" "TITLE" "PURPOSE"
+      tokencut_list_roles
+      exit 0
+      ;;
+    --role) role="$2"; shift 2 ;;
+    --question) question="$2"; shift 2 ;;
+    --spec) spec="$2"; shift 2 ;;
+    --reference) reference="$2"; shift 2 ;;
+    --target) target="$2"; shift 2 ;;
+    --draft) draft="$2"; shift 2 ;;
+    --brief) brief="$2"; shift 2 ;;
+    --log) logf="$2"; shift 2 ;;
+    --paths)
+      shift
+      while [[ $# -gt 0 && ! "$1" =~ ^-- ]]; do paths+=("$1"); shift; done
+      ;;
+    -h|--help)
+      sed -n '2,12p' "$0" | tr -d '#'
+      exit 0
+      ;;
+    *) echo "Unknown arg: $1" >&2; exit 2 ;;
+  esac
+done
+
+if [[ -z "$role" ]]; then
+  echo "Error: --role is required (or use --list)" >&2
+  exit 1
+fi
+
+tokencut_preflight || exit 1
+tokencut_load_role "$role" || exit 1
+
+abs() {
+  local p="$1"
+  if [[ "$p" = /* ]]; then echo "$p"; else echo "$(cd "$(dirname "$p")" && pwd)/$(basename "$p")"; fi
+}
+
+abs_paths=()
+for p in "${paths[@]+"${paths[@]}"}"; do
+  abs_paths+=("$(abs "$p")")
+done
+[[ ${#abs_paths[@]} -gt 0 ]] && tokencut_check_readable "${abs_paths[@]}"
+
+[[ -n "$reference" ]] && reference="$(abs "$reference")" && tokencut_check_readable "$reference"
+[[ -n "$target" ]] && target="$(abs "$target")"
+[[ -n "$draft" ]] && draft="$(abs "$draft")" && tokencut_check_readable "$draft"
+[[ -n "$brief" ]] && brief="$(abs "$brief")" && tokencut_check_readable "$brief"
+[[ -n "$logf" ]] && logf="$(abs "$logf")" && tokencut_check_readable "$logf"
+
+# Role-specific required args
+case "$role" in
+  reader|reviewer|debugger)
+    [[ -n "$question" ]] || { echo "Error: --question required for role=$role" >&2; exit 1; }
+    [[ ${#abs_paths[@]} -gt 0 || -n "$draft" || -n "$logf" ]] || {
+      echo "Error: provide --paths and/or --draft/--log for role=$role" >&2; exit 1; }
+    ;;
+  writer)
+    [[ -n "$spec" ]] || { echo "Error: --spec required for writer" >&2; exit 1; }
+    [[ -n "$reference" ]] || { echo "Error: --reference required for writer" >&2; exit 1; }
+    ;;
+  architect)
+    [[ -n "$question" ]] || { echo "Error: --question required for architect" >&2; exit 1; }
+    ;;
+esac
+
+# Size guard for path corpora (architect should stay small)
+if [[ ${#abs_paths[@]} -gt 0 ]]; then
+  total=0
+  for p in "${abs_paths[@]}"; do
+    b=$(wc -c < "$p" | tr -d ' ')
+    total=$((total + b))
+  done
+  if [[ "$role" == "architect" && "$total" -gt 120000 ]]; then
+    echo "Error: architect inputs are ${total} bytes — run reader first and pass --brief instead (limit ~120KB)." >&2
+    exit 1
+  fi
+  if [[ "$total" -gt "$TOKENCUT_MAX_BYTES" ]]; then
+    echo "Error: combined size ${total} bytes exceeds TOKENCUT_MAX_BYTES=${TOKENCUT_MAX_BYTES}" >&2
+    exit 1
+  fi
+fi
+
+tokencut_new_job "role-${role}"
+
+{
+  echo "# tokencut role=${role} (${ROLE_TITLE})"
+  echo
+  echo "$ROLE_SYSTEM"
+  echo
+  echo "## Role purpose"
+  echo
+  echo "$ROLE_PURPOSE"
+  echo
+  case "$role" in
+    reader|reviewer|debugger|architect)
+      echo "## Question"
+      echo
+      echo "$question"
+      echo
+      ;;
+    writer)
+      echo "## Spec"
+      echo
+      echo "$spec"
+      echo
+      ;;
+  esac
+  if [[ ${#abs_paths[@]} -gt 0 ]]; then
+    echo "## Files to read"
+    echo
+    for p in "${abs_paths[@]}"; do
+      lines=$(wc -l < "$p" | tr -d ' ')
+      bytes=$(wc -c < "$p" | tr -d ' ')
+      printf -- '- `%s` (%s lines, %s bytes)\n' "$p" "$lines" "$bytes"
+    done
+    echo
+  fi
+  [[ -n "$reference" ]] && { echo "## Reference file"; echo; echo "\`$reference\`"; echo; }
+  [[ -n "$target" ]] && { echo "## Target file (write here)"; echo; echo "\`$target\`"; echo; }
+  [[ -n "$draft" ]] && { echo "## Draft to review"; echo; echo "\`$draft\`"; echo; }
+  [[ -n "$brief" ]] && { echo "## Brief (from prior reader)"; echo; echo "\`$brief\`"; echo; }
+  [[ -n "$logf" ]] && { echo "## Log / trace"; echo; echo "\`$logf\`"; echo; }
+  echo "## Rules"
+  echo
+  echo "- Stay inside this role's purpose."
+  echo "- Prefer evidence with path:line when citing code."
+  echo "- Return only the role deliverable — no meta chatter."
+} > "$PROMPT_FILE"
+
+printf '%s\n' "${abs_paths[@]+"${abs_paths[@]}"}" > "${JOB_DIR}/paths.txt" || true
+echo "$role" > "${JOB_DIR}/role.txt"
+
+summary="role=${role} effort=${ROLE_EFFORT}"
+tokencut_emit_job "role-${role}" "$summary" "$ROLE_EFFORT" "$ROLE_MODEL" "$role"
