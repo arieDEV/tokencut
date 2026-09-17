@@ -1,0 +1,17 @@
+{
+  "mode": "tokencut bulk-read + low executor",
+  "job_id": "20260918-063153-66408-bulk-reader",
+  "prompt_file": "/workspace/.tokencut/jobs/20260918-063153-66408-bulk-reader/PROMPT.md",
+  "prompt_bytes": 1478,
+  "prompt_approx_tokens": 370,
+  "answer_bytes": 1616,
+  "answer_approx_tokens": 404,
+  "main_chat_bytes": 3094,
+  "main_chat_approx_tokens": 774,
+  "worker_corpus_bytes": 29949,
+  "worker_corpus_approx_tokens": 7488,
+  "worker_input_bytes_approx": 31427,
+  "worker_input_approx_tokens": 7857,
+  "worker_tier": "low",
+  "note": "Main chat carries packed job prompt + short answer. Full file bodies are read inside the low-cost worker."
+}

@@ -31,3 +31,13 @@ Thumbs.db
 .vscode/
 
 *.tgz
+
+# Public bench numbers (keep other artifacts local)
+bench/artifacts/
+!bench/artifacts/
+!bench/artifacts/comparison.json
+!bench/artifacts/quality.json
+!bench/artifacts/after-answer.md
+!bench/artifacts/before.json
+!bench/artifacts/after.json
+!bench/artifacts/manifest.json

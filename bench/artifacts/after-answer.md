@@ -1,0 +1,10 @@
+- **What:** tokencut is local token-saving workers for coding agents (Spotify shunt–inspired), with no Portal/AiKA — `README.md:3`
+- **Form:** installable dependency (CLI-like), not a chat product or browser extension — `README.md:5`
+- **Install:** `git clone` then `./scripts/install` — `README.md:19-21`; installer enables via `toggle on` and sets `TOKENCUT_ROOT` / `TOKENCUT_JOBS` — `scripts/install:13`, `scripts/install:26-27`
+- **Wire skills:** install symlinks `skills/` into Cursor (`~/.cursor/skills/tokencut`) and optional agent workflows — `scripts/install:48-52`, `docs/SETUP.md:15`
+- **Toggle:** `./scripts/toggle off|on`; verify with `./scripts/toggle status` — `README.md:45-46`, `README.md:33`
+- **Gate ON→workers:** coding asks on an existing user project (read/summarize/review/boilerplate) auto-route without magic words — `docs/when-to-use.md:10-16`, `README.md:53`
+- **Gate OFF→direct:** editing tokencut itself, greenfield scaffold, product Q&A, or `toggle` OFF — `docs/when-to-use.md:29-32`, `README.md:54-55`
+- **Script gate:** `should-use-tokencut --prompt` returns `use=false` when settings disabled — `scripts/should-use-tokencut:26-30`; coding verbs → `use=true` — `scripts/should-use-tokencut:74-78`
+- **Pack path:** if `use=true`, `use-for-project` detects project files and resolves a job — `scripts/use-for-project:21-26`, `docs/PUBLIC.md:11-14`
+- **Roles:** e.g. `reader` effort/model `low` keeps source out of main chat — `config/roles.json:5-9`; `delegate.sh` packs jobs and emits `model_hint` for a low executor — `scripts/lib/delegate.sh:60-69`

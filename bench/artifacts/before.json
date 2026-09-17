@@ -1,0 +1,76 @@
+{
+  "mode": "direct-read-into-main-chat",
+  "files": [
+    {
+      "path": "/workspace/tokencut/README.md",
+      "bytes": 2439,
+      "lines": 68,
+      "approx_tokens": 610
+    },
+    {
+      "path": "/workspace/tokencut/docs/PUBLIC.md",
+      "bytes": 1818,
+      "lines": 46,
+      "approx_tokens": 455
+    },
+    {
+      "path": "/workspace/tokencut/docs/SETUP.md",
+      "bytes": 850,
+      "lines": 34,
+      "approx_tokens": 213
+    },
+    {
+      "path": "/workspace/tokencut/docs/when-to-use.md",
+      "bytes": 1464,
+      "lines": 44,
+      "approx_tokens": 366
+    },
+    {
+      "path": "/workspace/tokencut/scripts/install",
+      "bytes": 3066,
+      "lines": 107,
+      "approx_tokens": 767
+    },
+    {
+      "path": "/workspace/tokencut/scripts/should-use-tokencut",
+      "bytes": 4185,
+      "lines": 89,
+      "approx_tokens": 1047
+    },
+    {
+      "path": "/workspace/tokencut/scripts/use-for-project",
+      "bytes": 2956,
+      "lines": 85,
+      "approx_tokens": 739
+    },
+    {
+      "path": "/workspace/tokencut/scripts/lib/context.sh",
+      "bytes": 2314,
+      "lines": 68,
+      "approx_tokens": 579
+    },
+    {
+      "path": "/workspace/tokencut/scripts/lib/delegate.sh",
+      "bytes": 4305,
+      "lines": 129,
+      "approx_tokens": 1077
+    },
+    {
+      "path": "/workspace/tokencut/scripts/lib/job-summary.sh",
+      "bytes": 392,
+      "lines": 15,
+      "approx_tokens": 98
+    },
+    {
+      "path": "/workspace/tokencut/config/roles.json",
+      "bytes": 6160,
+      "lines": 154,
+      "approx_tokens": 1540
+    }
+  ],
+  "total_bytes": 29949,
+  "total_lines": 839,
+  "file_count": 11,
+  "approx_tokens_in_main": 7488,
+  "note": "All corpus file bodies dumped into main chat (approx_tokens = ceil(bytes/4))."
+}

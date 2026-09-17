@@ -1,0 +1,61 @@
+{
+  "generated_at": "2026-09-18T06:32:23+07:00",
+  "job_id": "20260918-063153-66408-bulk-reader",
+  "answer_file": "/workspace/tokencut/bench/artifacts/after-answer.md",
+  "rubric": {
+    "purpose": {
+      "score": 2,
+      "max": 2,
+      "evidence": "Answer states local token-saving workers / installable dependency with README.md:3 and README.md:5."
+    },
+    "install_toggle": {
+      "score": 2,
+      "max": 2,
+      "evidence": "Covers clone+install, toggle on in installer, toggle off/on/status with scripts/install and README citations."
+    },
+    "when_to_use_gate": {
+      "score": 2,
+      "max": 2,
+      "evidence": "Separates auto-on coding path vs direct exceptions; cites when-to-use.md and should-use-tokencut gate."
+    },
+    "citations_present": {
+      "score": 2,
+      "max": 2,
+      "evidence": "Every bullet includes at least one path:line citation."
+    },
+    "citation_spot_check": {
+      "score": 2,
+      "max": 2,
+      "evidence": [
+        {
+          "citation": "README.md:3",
+          "claim": "local token-saving workers, no Portal/AiKA",
+          "line_verified": 3,
+          "quote": "Local **token-saving workers** for coding agents. Inspired by Spotify\u2019s *shunt*, with **no Portal / AiKA**.",
+          "hit": true
+        },
+        {
+          "citation": "scripts/install:13",
+          "claim": "installer calls toggle on",
+          "line_verified": 13,
+          "quote": "\"$ROOT/scripts/toggle\" on >/dev/null",
+          "hit": true
+        },
+        {
+          "citation": "scripts/should-use-tokencut:26-30",
+          "claim": "use=false when toggled OFF",
+          "line_verified": 29,
+          "quote": "  jq -n '{use:false,reason:\"tokencut toggled OFF\"}'",
+          "hit": true
+        }
+      ],
+      "hit_rate": 1.0,
+      "hits": 3,
+      "checked": 3
+    }
+  },
+  "total": 10,
+  "max_total": 10,
+  "citation_hit_rate": 1.0,
+  "notes": "Rubric is human-style checklist against fixed eval question; spot-check verified 3 cited lines against source."
+}

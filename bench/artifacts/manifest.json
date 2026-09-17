@@ -1,0 +1,9 @@
+{
+  "kind": "tokencut-job",
+  "mode": "bulk-reader",
+  "job_id": "20260918-063153-66408-bulk-reader",
+  "prompt_file": "/workspace/.tokencut/jobs/20260918-063153-66408-bulk-reader/PROMPT.md",
+  "model_hint": "low",
+  "effort": "low",
+  "summary": "bulk-read: 11 file(s), 29949 bytes"
+}
