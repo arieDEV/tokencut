@@ -1,172 +1,132 @@
 # tokencut
 
-**Token-saving local workers for coding agents** — inspired by Spotify’s *shunt*, **without Portal / AiKA**.
+**Hemat token untuk coding agent** — worker lokal di komputer agent.  
+Bukan chatbot. Bukan “mode chat”. Mirip dependency (`npm` / `pip`): pasang sekali, lalu jalan sendiri.
 
-Install it like a local dependency (npm/pip-style scripts + skills). When toggled **on**, agents should auto-use it for suitable coding work — **not** a chat/thread “mode” you enter with magic words.
-
-> Bahasa singkat: mesin hemat token di mesin agent. Pasang → `toggle on` → agent pakai sendiri untuk baca file besar / boilerplate / review. Bukan chatbot.
-
----
-
-## Mental model
-
-| Think of it as | Not |
-| --- | --- |
-| A **local package** of bash/python CLIs + agent skills | A product chat mode or Second Brain (Slack/Docs/Jira) |
-| **Always-on when `toggle on`** (like an installed lib) | Something you must say “pakai tokencut” to activate |
-| Workers for bulk I/O → short answers + ✂️ badge | A replacement for the main agent on meta/greenfield |
+Inspired by Spotify *shunt*, **tanpa Portal / AiKA**.
 
 ---
 
-## Requirements
+## Cocok untuk siapa?
+
+| Kamu pakai… | Support? | Cara |
+| --- | --- | --- |
+| **Cursor** (IDE) | ✅ Ya | One-click `./scripts/install` → skills masuk `~/.cursor/skills/tokencut` |
+| **Grok Bot** / agent di box (seperti agent yang bantu kamu di chat ini) | ✅ Ya | `install` memasang skill ke folder workflows agent |
+| Coding agent lain yang bisa jalankan shell + worker murah | ✅ Ya | Set `TOKENCUT_ROOT` + symlinks skills |
+| ChatGPT web / Claude.ai web (tanpa akses shell komputer) | ❌ Tidak | Perlu agent yang punya terminal di mesin |
+
+**Singkat:** tokencut hidup di **komputer agent** (Cursor box / Grok Bot computer / CI), bukan di browser chat biasa.
+
+---
+
+## Setup one-click (otomatis ON)
+
+Di mesin tempat agent bekerja:
+
+```bash
+git clone https://github.com/arieDEV/tokencut.git
+cd tokencut
+./scripts/install
+```
+
+Itu yang dilakukan install:
+
+1. `toggle on` — tokencut aktif seperti dependency terpasang  
+2. Set `TOKENCUT_ROOT` + `TOKENCUT_JOBS`  
+3. Pasang skills ke **Cursor** dan/atau **Grok Bot** (kalau foldernya ada)  
+4. Siap — **tidak perlu** bilang “pakai tokencut”
+
+Cek:
+
+```bash
+./scripts/toggle status
+```
+
+Harus kelihatan **ON**.
+
+> One-click ini **ada di repo** (`scripts/install`). Kalau README lama terasa rumit: itu yang kurang jelas, bukan fiturnya tidak ada.
+
+---
+
+## Cara pakai (orang awam)
+
+1. Pasang dengan `./scripts/install` (sekali).  
+2. Buka project kode yang sudah ada di komputer agent.  
+3. Chat biasa ke agent, contoh:
+   - “Jelaskan alur login”
+   - “Review file auth ini”
+   - “Buat boilerplate test dari contoh ini”
+4. Kalau tokencut ikut kerja, jawaban diakhiri badge **✂️** + job id.  
+5. Kalau badge **🧠** / tanpa ✂️ → agent jawab langsung (biasanya: edit tokencut sendiri, bikin project baru, atau `toggle off`).
+
+Kamu **tidak** perlu hafal path atau perintah. Agent yang jalanin script-nya.
+
+Matikan total:
+
+```bash
+./scripts/toggle off
+```
+
+---
+
+## Apa yang terjadi di belakang?
+
+```text
+Kamu tanya soal kode
+        ↓
+Gate: cocok untuk tokencut? (bukan edit tokencut / project baru)
+        ↓
+Deteksi project → worker murah baca/tulis/review
+        ↓
+(pipeline lanjut otomatis)
+        ↓
+Jawaban + badge ✂️
+```
+
+Detail untuk author agent: [`docs/PUBLIC.md`](docs/PUBLIC.md)
+
+---
+
+## Support IDE / agent (ringkas)
+
+| | Cursor | Grok Bot / box agent | Agent CLI lain |
+| --- | :---: | :---: | :---: |
+| One-click install | ✅ | ✅ | ✅ (env + skills) |
+| Auto pakai tanpa kata ajaib | ✅ (via skills) | ✅ (via skills) | ✅ jika agent ikut skill |
+| Badge ✂️ | ✅ | ✅ | ✅ |
+
+---
+
+## Perintah berguna (opsional)
+
+Hanya kalau kamu suka CLI; sehari-hari cukup chat ke agent.
+
+```bash
+export TOKENCUT_ROOT=/path/ke/tokencut
+
+"$TOKENCUT_ROOT/scripts/toggle" status
+"$TOKENCUT_ROOT/scripts/detect-project" --json
+"$TOKENCUT_ROOT/scripts/use-for-project" --prompt "Jelaskan struktur singkat"
+```
+
+---
+
+## Syarat
 
 - `bash`, `jq`, `python3`
-- A coding agent that can run shell scripts and spawn cheaper workers (`Task` / equivalent)
+- Agent yang bisa menjalankan shell di mesin yang sama dengan repo project
 
 ---
 
-## Install
+## Lisensi
 
-```bash
-git clone <your-fork-or-upstream-url> tokencut
-cd tokencut
+MIT — lihat [`LICENSE`](LICENSE)
 
-export TOKENCUT_ROOT="$PWD"
-export TOKENCUT_JOBS="${TOKENCUT_JOBS:-$HOME/.tokencut/jobs}"   # or e.g. /workspace/.tokencut/jobs
-mkdir -p "$TOKENCUT_JOBS"
-
-cp config/brain.md.template config/brain.md   # optional profile inject
-"$TOKENCUT_ROOT/scripts/toggle" on
-"$TOKENCUT_ROOT/scripts/toggle" status
-```
-
-Wire skills into your agent (copy or symlink):
-
-```bash
-# example — adjust to your agent’s skills directory
-ln -s "$TOKENCUT_ROOT/skills" /path/to/agent/skills/tokencut
-```
-
-Add `TOKENCUT_ROOT` / `TOKENCUT_JOBS` to the agent environment so scripts resolve without hard-coded paths.
+Release: [v1.0.0](https://github.com/arieDEV/tokencut/releases/tag/v1.0.0)
 
 ---
 
-## Quick start (no magic words)
+## Bahasa Inggris (one paragraph)
 
-With tokencut **ON**, give a normal coding ask on an existing project (“explain auth”, “review this draft”, “scaffold tests from this reference”). The agent should:
-
-1. `should-use-tokencut` — gate meta/greenfield
-2. `detect-project` → `use-for-project` (or `cmd` / `role-run` / `resolve-prompt`)
-3. Run workers with `model_hint` → `drive-next` until done
-4. Reply with a **✂️** badge + job id
-
-Manual smoke:
-
-```bash
-"$TOKENCUT_ROOT/scripts/should-use-tokencut" --prompt "Explain the auth flow"
-"$TOKENCUT_ROOT/scripts/detect-project" --json
-"$TOKENCUT_ROOT/scripts/cmd" --list
-"$TOKENCUT_ROOT/scripts/cmd" explain-area \
-  --question "What does this export?" \
-  --paths src/foo.ts
-```
-
----
-
-## When it runs vs answers directly
-
-| Situation | Path |
-| --- | --- |
-| Read / summarize / review / boilerplate on an **existing user project** | ✂️ tokencut |
-| Changing **tokencut itself**, **new project** scaffold, or “how do I use tokencut?” | Answer directly + `badge --none` |
-| `toggle off` | Answer directly |
-
-One-pager for agents: [`docs/PUBLIC.md`](docs/PUBLIC.md) · details: [`docs/when-to-use.md`](docs/when-to-use.md)
-
----
-
-## Badge ✂️
-
-Final replies that used tokencut **must** show a scissors badge and job id, e.g.:
-
-```text
-✂️ tokencut chain 📖reader💚→🧵synthesizer❤️ · job=20260918-...
-```
-
-No ✂️ + job id → **do not** claim token savings. Direct answers use `badge --none` (🧠).
-
-```bash
-"$TOKENCUT_ROOT/scripts/badge" --from-job "$TOKENCUT_JOBS/<id>/manifest.json"
-"$TOKENCUT_ROOT/scripts/badge" --none
-```
-
----
-
-## Toggle
-
-```bash
-"$TOKENCUT_ROOT/scripts/toggle" status
-"$TOKENCUT_ROOT/scripts/toggle" on
-"$TOKENCUT_ROOT/scripts/toggle" off                 # disable all tokencut packing
-"$TOKENCUT_ROOT/scripts/toggle" auto-continue on|off
-"$TOKENCUT_ROOT/scripts/toggle" badge on|off
-"$TOKENCUT_ROOT/scripts/toggle" smart-route on|off
-```
-
-State lives in `config/settings.json`.
-
----
-
-## Main CLIs
-
-| Command | Purpose |
-| --- | --- |
-| `should-use-tokencut` | Gate: pack vs answer directly |
-| `detect-project` / `use-for-project` | Find project + pack without user paths |
-| `cmd` | SOPs: `explain-area`, `review-change`, `design-choice` |
-| `role-run` | Roles: reader / writer / reviewer / debugger / architect / synthesizer |
-| `resolve-prompt` + `apply-classify` | Ambiguous prompt → classifier → role |
-| `smart-route` | Heuristic role + optional `--pack` |
-| `drive-next` / `last` / `e2e` | Advance pipeline / inspect jobs |
-| `learn` | Append lessons for later inject |
-
-Roles at a glance: **reader/writer** → low 💚 · **reviewer/debugger** → medium 💛 · **architect/synthesizer** → high ❤️
-
----
-
-## Docs
-
-- [`docs/PUBLIC.md`](docs/PUBLIC.md) — agent auto-route one-pager  
-- [`docs/when-to-use.md`](docs/when-to-use.md) · [`docs/any-project.md`](docs/any-project.md) · [`docs/auto-continue.md`](docs/auto-continue.md)  
-- [`docs/v2-plan.md`](docs/v2-plan.md) — design notes  
-- [`README.upstream.md`](README.upstream.md) — upstream Spotify *shunt* notes (Portal/AiKA; **not** used here)
-
----
-
-## Layout
-
-```text
-tokencut/
-  config/     roles, settings, brain.md.template, commands/, router-rules.json
-  scripts/    CLIs (+ lib/)
-  skills/     agent skill markdown (link/copy into your agent)
-  memory/     lessons.md
-  docs/       public + design docs
-  tests/      golden tests
-```
-
-Runtime jobs: `$TOKENCUT_JOBS/<id>/` (gitignored). Personal `config/brain.md` is gitignored — copy from the template.
-
----
-
-## Not for
-
-- Slack / Docs / Calendar / Jira / meeting recorders  
-- Claiming Spotify’s published % savings as your numbers (host pricing differs)  
-- Pure architecture decisions with no brief (keep those short on the main agent or `architect`)
-
----
-
-## License
-
-MIT — see [`LICENSE`](LICENSE). Contributions welcome: [`CONTRIBUTING.md`](CONTRIBUTING.md).
+tokencut is a **local installable dependency** for coding agents (Cursor, Grok Bot, etc.). Run `./scripts/install` once; when ON it auto-routes heavy read/boilerplate/review work to cheaper workers and shows a ✂️ badge. It is not a chat mode and does not run inside browser-only chat products.

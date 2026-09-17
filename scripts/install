@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# One-click setup: turn tokencut ON and wire skills for Cursor / Grok Bot / generic agents.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+JOBS="${TOKENCUT_JOBS:-$HOME/.tokencut/jobs}"
+mkdir -p "$JOBS"
+
+# Optional profile
+if [[ ! -f "$ROOT/config/brain.md" && -f "$ROOT/config/brain.md.template" ]]; then
+  cp "$ROOT/config/brain.md.template" "$ROOT/config/brain.md"
+fi
+
+"$ROOT/scripts/toggle" on >/dev/null
+
+# Persist env hint for shells
+ENV_LINE_ROOT="export TOKENCUT_ROOT=\"$ROOT\""
+ENV_LINE_JOBS="export TOKENCUT_JOBS=\"$JOBS\""
+for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+  if [[ -f "$rc" ]] || [[ "$rc" == "$HOME/.bashrc" ]]; then
+    touch "$rc"
+    grep -q 'TOKENCUT_ROOT=' "$rc" 2>/dev/null || {
+      printf '\n# tokencut\n%s\n%s\n' "$ENV_LINE_ROOT" "$ENV_LINE_JOBS" >> "$rc"
+    }
+  fi
+done
+export TOKENCUT_ROOT="$ROOT"
+export TOKENCUT_JOBS="$JOBS"
+
+wired=()
+
+# --- Cursor: project or user skills ---
+wire_cursor() {
+  local dest
+  for dest in \
+    "${CURSOR_SKILLS_DIR:-}" \
+    "$HOME/.cursor/skills/tokencut" \
+    "$PWD/.cursor/skills/tokencut" \
+    "$HOME/.cursor/skills-cursor/tokencut"
+  do
+    [[ -z "$dest" ]] && continue
+    mkdir -p "$(dirname "$dest")"
+    rm -rf "$dest"
+    ln -sfn "$ROOT/skills" "$dest"
+    wired+=("Cursor skills → $dest")
+    return 0
+  done
+  # default user Cursor skills
+  dest="$HOME/.cursor/skills/tokencut"
+  mkdir -p "$(dirname "$dest")"
+  rm -rf "$dest"
+  ln -sfn "$ROOT/skills" "$dest"
+  wired+=("Cursor skills → $dest")
+}
+
+# --- Grok Bot / box workflows ---
+wire_grok() {
+  local wf="${GROK_WORKFLOWS_DIR:-$HOME/agent-data/workflows}"
+  # also try sand-data paths
+  for cand in "$wf" "$HOME/sand-data/workflows" "/home/box/agent-data/workflows"; do
+    [[ -d "$(dirname "$cand")" ]] || continue
+    mkdir -p "$cand"
+    # symlink each skill folder that has SKILL.md
+    local s
+    for s in "$ROOT"/skills/*/SKILL.md; do
+      [[ -f "$s" ]] || continue
+      local name
+      name="$(basename "$(dirname "$s")")"
+      local target="$cand/tokencut-$name"
+      rm -rf "$target"
+      ln -sfn "$(dirname "$s")" "$target"
+    done
+    # also copy gate skills from repo skills root markdown if any
+    wired+=("Grok/box workflows → $cand/tokencut-*")
+    return 0
+  done
+  return 1
+}
+
+wire_cursor
+wire_grok || true
+
+# Write install stamp
+cat > "$ROOT/.install-stamp.json" << JSON
+{
+  "installed_at": "$(date -Iseconds)",
+  "TOKENCUT_ROOT": "$ROOT",
+  "TOKENCUT_JOBS": "$JOBS",
+  "toggle": "on"
+}
+JSON
+
+echo ""
+echo "✅ tokencut installed & ON"
+echo "   TOKENCUT_ROOT=$ROOT"
+echo "   TOKENCUT_JOBS=$JOBS"
+if [[ ${#wired[@]} -gt 0 ]]; then
+  echo "   Wired:"
+  for w in "${wired[@]}"; do echo "   - $w"; done
+else
+  echo "   (No Cursor/Grok skill dir found — scripts still work via TOKENCUT_ROOT)"
+fi
+echo ""
+echo "Next: open your coding agent (Cursor / Grok Bot) and ask a normal coding question"
+echo "on an existing project. You should see a ✂️ badge when tokencut ran."
+echo ""
+echo "Check:  $ROOT/scripts/toggle status"
+echo "Docs:   $ROOT/README.md"
