@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# Resolve a user prompt into a tokencut job, using classifier when ambiguous.
+# Usage:
+#   resolve-prompt --prompt "..." [--paths f1 f2] [--draft d] [--reference r] [--question q]
+# Emits JSON with action: task_worker | done | need_inputs
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+prompt=""
+paths=()
+draft=""
+reference=""
+target=""
+question=""
+spec=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --prompt) prompt="$2"; shift 2 ;;
+    --question) question="$2"; shift 2 ;;
+    --spec) spec="$2"; shift 2 ;;
+    --draft) draft="$2"; shift 2 ;;
+    --reference) reference="$2"; shift 2 ;;
+    --target) target="$2"; shift 2 ;;
+    --paths)
+      shift
+      while [[ $# -gt 0 && ! "$1" =~ ^-- ]]; do paths+=("$1"); shift; done
+      ;;
+    -h|--help)
+      echo "Usage: resolve-prompt --prompt \"...\" [--paths ...] [--draft ...] [--reference ...]"
+      exit 0
+      ;;
+    *) echo "Unknown: $1" >&2; exit 2 ;;
+  esac
+done
+
+[[ -n "$prompt" ]] || { echo "Error: --prompt required" >&2; exit 2; }
+[[ -n "$question" ]] || question="$prompt"
+[[ -n "$spec" ]] || spec="$prompt"
+
+# Always classify path when ambiguous via smart-route --classify
+sr_args=(--prompt "$prompt" --classify)
+[[ ${#paths[@]} -gt 0 ]] && sr_args+=(--paths "${paths[@]}")
+[[ -n "$draft" ]] && sr_args+=(--draft "$draft")
+[[ -n "$reference" ]] && sr_args+=(--reference "$reference")
+
+sr=$("$ROOT/scripts/smart-route" "${sr_args[@]}" 2>/tmp/resolve-sr.err)
+ambiguous=$(echo "$sr" | jq -r .ambiguous)
+can_pack=$(echo "$sr" | jq -r '.can_auto_pack // .can_pack // false')
+role=$(echo "$sr" | jq -r .suggested_role)
+model=$(echo "$sr" | jq -r .model_hint)
+conf=$(echo "$sr" | jq -r .confidence)
+
+pack_role() {
+  local r="$1"
+  local args=()
+  case "$r" in
+    reader|debugger|reviewer)
+      args=(--role "$r" --question "$question")
+      [[ ${#paths[@]} -gt 0 ]] && args+=(--paths "${paths[@]}")
+      [[ -n "$draft" ]] && args+=(--draft "$draft")
+      ;;
+    writer)
+      args=(--role writer --spec "$spec")
+      [[ -n "$reference" ]] && args+=(--reference "$reference")
+      [[ -n "$target" ]] && args+=(--target "$target")
+      if [[ -z "$reference" && ${#paths[@]} -gt 0 ]]; then
+        args+=(--reference "${paths[0]}")
+      fi
+      ;;
+    architect|synthesizer)
+      args=(--role "$r" --question "$question")
+      [[ ${#paths[@]} -gt 0 ]] && args+=(--paths "${paths[@]}")
+      ;;
+    *)
+      echo "Error: cannot pack role=$r" >&2
+      return 1
+      ;;
+  esac
+  "$ROOT/scripts/role-run" "${args[@]}"
+}
+
+if [[ "$ambiguous" != "true" && "$can_pack" == "true" ]]; then
+  # Direct pack
+  missing=$(echo "$sr" | jq -c .missing_inputs)
+  if [[ "$missing" != "[]" && "$missing" != "null" ]]; then
+    echo "$sr" | jq --argjson m "$missing" '. + {ok:false,action:"need_inputs",missing_inputs:$m}'
+    exit 0
+  fi
+  packed=$(pack_role "$role" 2>/tmp/resolve-pack.err) || {
+    jq -n --arg err "$(cat /tmp/resolve-pack.err)" --argjson sr "$sr" \
+      '{ok:false,action:"error",error:$err,smart_route:$sr}'
+    exit 1
+  }
+  jq -n --argjson sr "$sr" --argjson packed "$packed" \
+    '{ok:true,action:"task_worker",source:"smart_route",smart_route:$sr,packed:$packed,model:($packed.model_hint),prompt_file:($packed.prompt_file),job_dir:($packed.job_dir),save_answer_to:(($packed.job_dir)+"/brief.md"),note:"AUTO-CONTINUE: Task worker then drive-next"}'
+  exit 0
+fi
+
+# Ambiguous → ensure classifier job, stash context for apply-classify
+cdir=$(echo "$sr" | jq -r '.classifier_job.job_dir // empty')
+if [[ -z "$cdir" || "$cdir" == "null" ]]; then
+  cargs=(--prompt "$prompt")
+  [[ ${#paths[@]} -gt 0 ]] && cargs+=(--paths "${paths[@]}")
+  cj=$("$ROOT/scripts/classify-ambiguous" "${cargs[@]}" 2>/tmp/resolve-c.err)
+  cdir=$(echo "$cj" | jq -r .job_dir)
+  sr=$(echo "$sr" | jq --argjson cj "$cj" '.classifier_job=$cj')
+fi
+
+# Persist resolve context for apply-classify
+mkdir -p "$cdir"
+printf '%s' "$prompt" > "$cdir/user_prompt.txt"
+printf '%s' "$question" > "$cdir/question.txt"
+printf '%s' "$spec" > "$cdir/spec.txt"
+: > "$cdir/paths.txt"
+for p in "${paths[@]+"${paths[@]}"}"; do echo "$p" >> "$cdir/paths.txt"; done
+[[ -n "$draft" ]] && echo "$draft" > "$cdir/draft.txt"
+[[ -n "$reference" ]] && echo "$reference" > "$cdir/reference.txt"
+[[ -n "$target" ]] && echo "$target" > "$cdir/target.txt"
+echo "$sr" > "$cdir/smart_route.json"
+
+jq -n --argjson sr "$sr" \
+  --arg job_dir "$cdir" \
+  --arg prompt_file "$(echo "$sr" | jq -r '.classifier_job.prompt_file')" \
+  --arg save "$(echo "$sr" | jq -r '.classifier_job.job_dir')/answer.json" \
+  '{ok:true,action:"task_worker",source:"classifier",model:"low",job_dir:$job_dir,prompt_file:$prompt_file,save_answer_to:$save,smart_route:$sr,note:"AUTO-CONTINUE: Task classifier low, then run apply-classify --job-dir <job_dir>"}'

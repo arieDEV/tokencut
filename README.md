@@ -162,3 +162,12 @@ Rencana lengkap: [`docs/v2-plan.md`](docs/v2-plan.md).
 ## Auto-continue
 
 Setelah job/pipeline tokencut dimulai, agent **melanjutkan semua step sampai selesai** tanpa menunggu user mengetik “lanjut”. Berhenti hanya jika user minta stop, butuh approval destruktif, atau ambigu yang memblokir. Lihat `docs/auto-continue.md`.
+
+### Resolve ambiguous prompts (auto-continue)
+
+```bash
+/workspace/tokencut/scripts/resolve-prompt --prompt "..." --paths f.ts
+# → Task classifier low → save answer.json
+/workspace/tokencut/scripts/apply-classify --job-dir <classifier_job_dir>
+# → Task chosen role → drive-next until done
+```

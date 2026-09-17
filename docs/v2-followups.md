@@ -1,16 +1,14 @@
-# tokencut v2 follow-ups (post-MVP)
+# tokencut v2 follow-ups
 
-Done in this pass:
-- `scripts/last` — job terakhir + badge
-- `toggle inject-brain|inject-lessons on|off`
-- `tests/smart-route-golden.sh` — regresi heuristik
+## Done (in-scope)
 
-Still optional later:
-- Low-model classifier for ambiguous prompts only
-- External connectors (out of tokencut scope)
+- Brain / learn / commands / synthesizer / badge chain / smart-route v2
+- Classifier pack + `smart-route --classify`
+- `resolve-prompt` + `apply-classify` (ambiguous → classify → pack chosen role)
+- `drive-next`, `e2e`, `last`, `auto_continue`
+- Golden tests
 
-## Added next
+## Out of scope (not tokencut)
 
-- `scripts/classify-ambiguous` — pack low classifier job (JSON role/model)
-- `smart-route --classify` — when ambiguous, attach `classifier_job`
-- `scripts/e2e` — pack explain-area chain + print agent next steps + badge preview
+- Slack / Google Docs / Jira / meeting recorder / content dashboard  
+  → belong in a Second Brain ops layer, not this coding token-savings tool

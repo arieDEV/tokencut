@@ -107,7 +107,21 @@ if [[ "$role" == "reader" || "$role" == "writer" || "$role" == "reviewer" ]]; th
   fi
 fi
 
-if [[ "$role" == "synthesizer" || "$role" == "classifier" ]]; then
+
+# Classifier job: after answer.json, apply-classify
+if [[ -f "$job_dir/answer.json" || -f "$job_dir/PROMPT.md" ]] && [[ "$(basename "$job_dir")" == *classify* || "$role" == "classifier" ]]; then
+  if [[ ! -s "$job_dir/answer.json" ]]; then
+    pf=$(jq -r .prompt_file "$job_dir/manifest.json")
+    jq -n --arg action "task_worker" --arg job_dir "$job_dir" --arg prompt_file "$pf" \
+      --arg model "low" --arg save_to "$job_dir/answer.json" \
+      '{ok:true,action:$action,job_dir:$job_dir,prompt_file:$prompt_file,model:$model,save_answer_to:$save_to,note:"Run classifier low"}'
+    exit 0
+  fi
+  # Delegate to apply-classify
+  exec "$ROOT/scripts/apply-classify" --job-dir "$job_dir"
+fi
+
+if [[ "$role" == "synthesizer" ]]; then
   if [[ ! -s "$job_dir/answer.md" && ! -s "$job_dir/answer.json" ]]; then
     pf=$(jq -r .prompt_file "$job_dir/manifest.json")
     model=$(jq -r .model_hint "$job_dir/manifest.json")

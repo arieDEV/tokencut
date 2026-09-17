@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# After classifier worker writes answer.json, pack the chosen role and continue.
+# Usage: apply-classify --job-dir <classifier_job_dir>
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+job_dir=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --job-dir) job_dir="$2"; shift 2 ;;
+    -h|--help) echo "Usage: apply-classify --job-dir DIR"; exit 0 ;;
+    *) echo "Unknown: $1" >&2; exit 2 ;;
+  esac
+done
+[[ -n "$job_dir" && -d "$job_dir" ]] || { echo "Error: --job-dir required" >&2; exit 2; }
+
+ans="$job_dir/answer.json"
+[[ -f "$ans" ]] || { echo "Error: missing $ans — run classifier worker first" >&2; exit 1; }
+
+# Extract JSON object even if wrapped in text
+json_line=$(python3 - << PY
+import json,re,pathlib
+raw=pathlib.Path("$ans").read_text()
+try:
+    print(json.dumps(json.loads(raw)))
+except Exception:
+    m=re.search(r"\\{.*\\}", raw, re.S)
+    if not m: raise SystemExit('no json in answer.json')
+    print(json.dumps(json.loads(m.group(0))))
+PY
+)
+
+role=$(echo "$json_line" | jq -r .role)
+model=$(echo "$json_line" | jq -r .model_hint)
+reason=$(echo "$json_line" | jq -r .reason)
+
+prompt=$(cat "$job_dir/user_prompt.txt" 2>/dev/null || true)
+question=$(cat "$job_dir/question.txt" 2>/dev/null || echo "$prompt")
+spec=$(cat "$job_dir/spec.txt" 2>/dev/null || echo "$prompt")
+mapfile -t paths < <(cat "$job_dir/paths.txt" 2>/dev/null || true)
+draft=$(cat "$job_dir/draft.txt" 2>/dev/null || true)
+reference=$(cat "$job_dir/reference.txt" 2>/dev/null || true)
+target=$(cat "$job_dir/target.txt" 2>/dev/null || true)
+
+args=(--role "$role")
+case "$role" in
+  reader|debugger|reviewer)
+    args+=(--question "$question")
+    [[ ${#paths[@]} -gt 0 ]] && args+=(--paths "${paths[@]}")
+    [[ -n "$draft" ]] && args+=(--draft "$draft")
+    ;;
+  writer)
+    args+=(--spec "$spec")
+    if [[ -n "$reference" ]]; then args+=(--reference "$reference")
+    elif [[ ${#paths[@]} -gt 0 ]]; then args+=(--reference "${paths[0]}")
+    else
+      jq -n --arg r "$role" '{ok:false,action:"need_inputs",error:"writer needs --reference",role:$r}'
+      exit 0
+    fi
+    [[ -n "$target" ]] && args+=(--target "$target")
+    ;;
+  architect|synthesizer)
+    args+=(--question "$question")
+    [[ ${#paths[@]} -gt 0 ]] && args+=(--paths "${paths[@]}")
+    ;;
+  *)
+    jq -n --arg r "$role" '{ok:false,action:"error",error:("unknown role "+$r)}'
+    exit 1
+    ;;
+esac
+
+packed=$("$ROOT/scripts/role-run" "${args[@]}" 2>/tmp/apply-pack.err) || {
+  jq -n --arg err "$(cat /tmp/apply-pack.err)" --argjson cls "$json_line" \
+    '{ok:false,action:"error",error:$err,classify:$cls}'
+  exit 1
+}
+
+# Record linkage
+echo "$job_dir" > "$(echo "$packed" | jq -r .job_dir)/parent_classify.txt"
+echo "$json_line" > "$(echo "$packed" | jq -r .job_dir)/classify.json"
+
+save="$(echo "$packed" | jq -r .job_dir)/brief.md"
+[[ "$role" == "synthesizer" ]] && save="$(echo "$packed" | jq -r .job_dir)/answer.md"
+
+jq -n --argjson cls "$json_line" --argjson packed "$packed" --arg save "$save" \
+  --arg badge "$("$ROOT/scripts/badge" --role classifier --model low --job-id "$(basename "$job_dir")")" \
+  '{ok:true,action:"task_worker",source:"apply_classify",classify:$cls,packed:$packed,model:($packed.model_hint),prompt_file:($packed.prompt_file),job_dir:($packed.job_dir),save_answer_to:$save,classifier_badge:$badge,note:"AUTO-CONTINUE: Task this role worker, then drive-next until done"}'
