@@ -33,8 +33,11 @@ fi
 pl=$(printf '%s' "$prompt" | tr '[:upper:]' '[:lower:]')
 
 # --- META: working ON tokencut itself ---
+# Meta: working ON tokencut (words may appear between verb and name)
 meta_kw='modifikasi tokencut|ubah tokencut|edit tokencut|perbaiki tokencut|fix tokencut|upgrade tokencut|tokencut sendiri|repo tokencut|/workspace/tokencut|develop tokencut|improve tokencut|refactor tokencut'
-if echo "$pl" | grep -Eq "$meta_kw"; then
+meta_loose='(ubah|edit|perbaiki|fix|modifikasi|upgrade|refactor|develop|improve).{0,40}tokencut|tokencut.{0,40}(script|config|readme|toggle|skill|pipeline)'
+if echo "$pl" | grep -Eq "$meta_kw" || echo "$pl" | grep -Eiq "$meta_loose"; then
+  # Exception: pure product Q already handled later; modifying still main
   jq -n '{use:false,reason:"meta: user is modifying tokencut itself — use main agent",mode:"main"}'
   exit 0
 fi
