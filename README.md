@@ -73,6 +73,26 @@ Atau bilang di chat: *“pakai tokencut, jelaskan file X”* — agent yang mema
 
 
 
+
+
+## Project apa pun (user tidak perlu path)
+
+Cukup bilang di chat: **“pakai tokencut, …(maksud kerja)…”**
+
+Agent akan:
+
+1. Cek gate (`should-use-tokencut`)
+2. Deteksi project di `/workspace` (`detect-project`) — **bukan** folder tokencut
+3. Pack job (`use-for-project` / `resolve-prompt`)
+4. Auto-continue sampai selesai + badge
+
+```bash
+/workspace/tokencut/scripts/detect-project --json
+/workspace/tokencut/scripts/use-for-project --prompt "Jelaskan alur auth singkat"
+```
+
+Kalau belum ada repo lain di `/workspace`, clone/buka project dulu — path tetap urusan agent, bukan user.
+
 ## Kapan pakai / kapan jangan
 
 | Situasi | Mode |

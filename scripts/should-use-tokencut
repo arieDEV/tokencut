@@ -68,4 +68,12 @@ if echo "$pl" | grep -Eq "$doc_kw"; then
   exit 0
 fi
 
+# Explicit "use tokencut for my project" — user does not care about paths
+want_kw='pakai tokencut|gunakan tokencut|pake tokencut|with tokencut|use tokencut|tolong tokencut'
+if echo "$pl" | grep -Eq "$want_kw"; then
+  # still blocked if clearly meta/greenfield (already returned above)
+  jq -n '{use:true,reason:"user asked to use tokencut on their project — agent must detect-project for paths",mode:"tokencut",auto_detect_project:true}'
+  exit 0
+fi
+
 jq -n '{use:true,reason:"default: eligible for tokencut if bulk/boilerplate/review fits",mode:"tokencut"}'

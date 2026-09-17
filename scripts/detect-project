@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Find the user's active project root(s) under /workspace, excluding tokencut itself.
+# Usage: detect-project [--json]
+set -euo pipefail
+JSON=false
+[[ "${1:-}" == "--json" ]] && JSON=true
+
+WS="${WORKSPACE_ROOT:-/workspace}"
+exclude='^(tokencut|\.tokencut|\.git|node_modules)$'
+
+candidates=()
+# Prefer dirs that look like projects
+while IFS= read -r d; do
+  base=$(basename "$d")
+  echo "$base" | grep -Eq "$exclude" && continue
+  # skip hidden top-level except we already skip
+  [[ "$base" == .* ]] && continue
+  score=0
+  [[ -d "$d/.git" ]] && score=$((score+3))
+  [[ -f "$d/package.json" || -f "$d/pyproject.toml" || -f "$d/go.mod" || -f "$d/Cargo.toml" ]] && score=$((score+2))
+  [[ -f "$d/README.md" || -f "$d/readme.md" ]] && score=$((score+1))
+  # recent mtime boost
+  if find "$d" -maxdepth 2 -type f -mmin -120 2>/dev/null | head -1 | grep -q .; then
+    score=$((score+2))
+  fi
+  if [[ "$score" -gt 0 ]]; then
+    candidates+=("$score|$d")
+  fi
+done < <(find "$WS" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
+
+# Also include nested common locations if empty
+if [[ ${#candidates[@]} -eq 0 ]]; then
+  while IFS= read -r d; do
+    base=$(basename "$d")
+    echo "$base" | grep -Eq "$exclude" && continue
+    candidates+=("1|$d")
+  done < <(find "$WS" -mindepth 1 -maxdepth 1 -type d ! -name '.*' 2>/dev/null | sort)
+fi
+
+IFS=$'\n' sorted=$(printf '%s\n' "${candidates[@]+"${candidates[@]}"}" | sort -t'|' -k1 -nr)
+primary=""
+paths=()
+while IFS= read -r line; do
+  [[ -z "$line" ]] && continue
+  d=${line#*|}
+  paths+=("$d")
+  [[ -z "$primary" ]] && primary=$d
+done <<< "$sorted"
+
+if [[ "$JSON" == true ]]; then
+  jq -n \
+    --arg primary "${primary}" \
+    --argjson projects "$(printf '%s\n' "${paths[@]+"${paths[@]}"}" | jq -R . | jq -s -c 'map(select(length>0))')" \
+    '{primary: (if $primary=="" then null else $primary end), projects:$projects, exclude:["/workspace/tokencut"], note:"Agent should use primary (or ask if multiple) as --paths root; user need not know paths"}'
+else
+  if [[ -z "$primary" ]]; then
+    echo "No user project found under $WS (excluding tokencut)."
+    echo "Clone/open a repo under /workspace, then say: pakai tokencut"
+    exit 1
+  fi
+  echo "primary=$primary"
+  printf 'projects=%s\n' "${paths[*]}"
+fi

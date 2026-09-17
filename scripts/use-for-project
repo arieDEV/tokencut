@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# User-facing: "pakai tokencut" without caring about paths.
+# Detects project, then resolve-prompt (or explain-area if clear).
+# Usage:
+#   use-for-project --prompt "Jelaskan arsitektur singkat"
+#   use-for-project --prompt "..." --project /workspace/my-app
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+prompt=""
+project=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --prompt) prompt="$2"; shift 2 ;;
+    --project) project="$2"; shift 2 ;;
+    -h|--help)
+      echo "Usage: use-for-project --prompt \"...\" [--project /path]"
+      exit 0
+      ;;
+    *) echo "Unknown: $1" >&2; exit 2 ;;
+  esac
+done
+[[ -n "$prompt" ]] || { echo "Error: --prompt required" >&2; exit 2; }
+
+gate=$("$ROOT/scripts/should-use-tokencut" --prompt "$prompt" ${project:+--paths "$project"})
+use=$(echo "$gate" | jq -r .use)
+if [[ "$use" != "true" ]]; then
+  echo "$gate" | jq '. + {ok:false,action:"main_only",note:"Do not pack tokencut; answer on main chat"}'
+  exit 0
+fi
+
+if [[ -z "$project" ]]; then
+  det=$("$ROOT/scripts/detect-project" --json)
+  project=$(echo "$det" | jq -r .primary)
+  if [[ -z "$project" || "$project" == "null" ]]; then
+    jq -n --argjson det "$det" '{ok:false,action:"need_project",detect:$det,note:"No project under /workspace yet — clone/open a repo, then retry. User should not invent paths."}'
+    exit 0
+  fi
+  n=$(echo "$det" | jq '.projects|length')
+  if [[ "$n" -gt 1 ]]; then
+    # Prefer primary but surface alternatives for agent to pick if needed
+    :
+  fi
+fi
+
+# Prefer a few entry files if obvious, else project root as path hint
+paths=("$project")
+for cand in README.md package.json src app lib; do
+  if [[ -e "$project/$cand" ]]; then
+    paths+=("$project/$cand")
+  fi
+done
+
+# Cap paths list
+args=(--prompt "$prompt" --paths "${paths[@]:0:6}")
+res=$("$ROOT/scripts/resolve-prompt" "${args[@]}" 2>/tmp/ufp.err)
+echo "$res" | jq --arg project "$project" --argjson gate "$gate" \
+  '. + {ok:true,project:$project,gate:$gate,note:"AUTO-CONTINUE from here (classifier or role worker)"}'
