@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# Pack a bulk-read job for a low-cost executor (no Portal / AiKA).
+# Usage: bulk-read --question "What does this do?" --paths file1.ts file2.ts
+#
+# Prints a JSON job manifest on stdout. The agent must then Task an executor
+# (model=low) with the contents of prompt_file — never load those files into
+# the main conversation.
+
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=lib/delegate.sh
+. "$(cd "$(dirname "$0")" && pwd)/lib/delegate.sh"
+
+question=""
+paths=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --question) question="$2"; shift 2 ;;
+    --paths)
+      shift
+      while [[ $# -gt 0 && ! "$1" =~ ^-- ]]; do
+        paths+=("$1")
+        shift
+      done
+      ;;
+    -h|--help)
+      echo "Usage: bulk-read --question \"...\" --paths <file> [file...]"
+      exit 0
+      ;;
+    *) echo "Unknown arg: $1" >&2; exit 2 ;;
+  esac
+done
+
+if [[ -z "$question" ]]; then
+  echo "Error: --question is required" >&2
+  exit 1
+fi
+if [[ ${#paths[@]} -eq 0 ]]; then
+  echo "Error: --paths is required" >&2
+  exit 1
+fi
+
+# Resolve to absolute paths for the worker
+abs_paths=()
+for p in "${paths[@]}"; do
+  if [[ "$p" = /* ]]; then
+    abs_paths+=("$p")
+  else
+    abs_paths+=("$(cd "$(dirname "$p")" && pwd)/$(basename "$p")")
+  fi
+done
+
+shunt_local_preflight || exit 1
+shunt_local_check_readable "${abs_paths[@]}" || exit 1
+
+total_bytes=0
+for p in "${abs_paths[@]}"; do
+  b=$(wc -c < "$p" | tr -d ' ')
+  total_bytes=$((total_bytes + b))
+done
+if [[ "$total_bytes" -gt "$SHUNT_LOCAL_MAX_BYTES" ]]; then
+  echo "Error: combined size ${total_bytes} bytes exceeds SHUNT_LOCAL_MAX_BYTES=${SHUNT_LOCAL_MAX_BYTES}. Split the batch." >&2
+  exit 1
+fi
+
+shunt_local_new_job bulk-reader
+
+{
+  cat <<'HDR'
+# Bulk file read (shunt-local)
+
+You are a low-cost worker. Read ONLY the files listed below (use the Read tool on this computer). Answer the question in structured bullets. Lead every bullet with an exact name, type, or line number. No greetings, no preamble, no long quotes of source. Skip anything the question did not ask for.
+
+Before finishing, double-check any line numbers you cite against the files.
+
+## Question
+
+HDR
+  printf '%s\n\n' "$question"
+  echo "## Files to read"
+  echo
+  for p in "${abs_paths[@]}"; do
+    lines=$(wc -l < "$p" | tr -d ' ')
+    bytes=$(wc -c < "$p" | tr -d ' ')
+    printf -- '- `%s` (%s lines, %s bytes)\n' "$p" "$lines" "$bytes"
+  done
+  echo
+  echo "## Rules"
+  echo
+  echo "- Do not invent symbols that are not in the files."
+  echo "- If a path is unreadable, say so and continue with the rest."
+  echo "- Return only the answer bullets — nothing else."
+} > "$PROMPT_FILE"
+
+# Copy path list for tooling
+printf '%s\n' "${abs_paths[@]}" > "${JOB_DIR}/paths.txt"
+
+shunt_local_emit_job bulk-reader "bulk-read: ${#abs_paths[@]} file(s), ${total_bytes} bytes"
