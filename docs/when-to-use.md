@@ -1,24 +1,37 @@
-# Kapan pakai tokencut vs main agent
+# Kapan tokencut aktif (seperti dependency terpasang)
 
-## Pakai tokencut (✂️)
-- Baca / ringkas **banyak atau file besar** di *project user*
+**tokencut ON = sudah “ter-install”.** User **tidak** perlu bilang “pakai tokencut”.
+Seperti `npm` / `pip`: kalau tugas coding cocok, agent **wajib** memakai tokencut sendiri.
+
+Matikan hanya dengan: `toggle off` (global) atau kasus pengecualian di bawah.
+
+## Aktif otomatis (✂️) — default
+Setiap ask coding di **project user yang sudah ada** (bukan folder tokencut):
+- Baca / ringkas / jelaskan area kode
 - Generate boilerplate dari referensi
 - Review draft/diff
-- Classifier saat prompt kabur **untuk kerja coding di project**
+- Debug dengan log + potongan kode
+- Prompt kabur → classifier low lalu lanjut role
 
-## Jangan pakai tokencut (🧠 main)
-1. **Modifikasi tokencut sendiri** — ubah script/config/README di `/workspace/tokencut`
-2. **Project baru / greenfield** — scaffold app, buat repo baru, “buat aplikasi dari nol” (ikuti skill code-changes / CloudAgent)
-3. **Tanya produk tokencut** — cara pakai, status toggle, penjelasan README
-4. Debug bedah baris yang butuh konteks penuh di chat utama
-5. Keputusan arsitektur tanpa brief worker
+Alur agent (tanpa menunggu kata ajaib):
 
-## Gate wajib untuk agent
-Sebelum `smart-route` / `role-run` / `cmd` / `resolve-prompt`:
+```bash
+should-use-tokencut --prompt "<user ask>"
+# jika use=true:
+detect-project / use-for-project --prompt "..."
+# lalu Task worker + drive-next (auto-continue) + badge ✂️
+```
 
+## Tetap di main (🧠) — pengecualian
+1. **Modifikasi tokencut sendiri** (`/workspace/tokencut`, “ubah/perbaiki tokencut”)
+2. **Project baru / greenfield** (scaffold dari nol)
+3. **Tanya produk tokencut** (cara pakai, status toggle, README)
+4. **tokencut di-toggle OFF**
+5. Debug bedah yang memang butuh konteks penuh di chat utama
+
+## Gate
 ```bash
 /workspace/tokencut/scripts/should-use-tokencut --prompt "<user ask>" [--paths ...]
 ```
-
-Jika `use=false` → kerjakan di main, badge `--none`.  
-Jika `use=true` → lanjut pipeline tokencut + auto-continue.
+`use=false` → main + badge `--none`  
+`use=true` → auto pack (user tidak perlu sebut tokencut)

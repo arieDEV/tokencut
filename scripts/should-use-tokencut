@@ -68,6 +68,13 @@ if echo "$pl" | grep -Eq "$doc_kw"; then
   exit 0
 fi
 
+# Coding verbs → auto tokencut (no need to say "pakai tokencut")
+coding_kw='jelaskan|ringkas|summar|explain|review|refactor|boilerplate|generate|implement|tambah|fix bug|debug|analisis|baca file|baca kode|arsitektur|alur|diff'
+if echo "$pl" | grep -Eq "$coding_kw"; then
+  jq -n '{use:true,reason:"coding task — tokencut always-on, auto-detect project (user need not say pakai)",mode:"tokencut",auto_detect_project:true}'
+  exit 0
+fi
+
 # Explicit "use tokencut for my project" — user does not care about paths
 want_kw='pakai tokencut|gunakan tokencut|pake tokencut|with tokencut|use tokencut|tolong tokencut'
 if echo "$pl" | grep -Eq "$want_kw"; then
@@ -76,4 +83,4 @@ if echo "$pl" | grep -Eq "$want_kw"; then
   exit 0
 fi
 
-jq -n '{use:true,reason:"default: eligible for tokencut if bulk/boilerplate/review fits",mode:"tokencut"}'
+jq -n '{use:true,reason:"always-on: tokencut enabled like installed dep — auto-route coding work (no magic words)",mode:"tokencut",auto_detect_project:true}'

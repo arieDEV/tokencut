@@ -75,9 +75,15 @@ Atau bilang di chat: *“pakai tokencut, jelaskan file X”* — agent yang mema
 
 
 
+## Selalu aktif seperti dependency (tanpa kata “pakai”)
+
+Kalau tokencut **ON** (default setelah pasang), agent **wajib** memakainya untuk kerja coding di project yang ada — **tanpa** user bilang “pakai tokencut”. Analog `npm` / `pip` yang sudah terpasang.
+
+Matikan hanya: `./scripts/toggle off`, atau tugas meta/greenfield (lihat bawah).
+
 ## Project apa pun (user tidak perlu path)
 
-Cukup bilang di chat: **“pakai tokencut, …(maksud kerja)…”**
+Cukup kasih tugas coding biasa (jelaskan/review/buat boilerplate). **Tidak perlu** sebut “pakai tokencut”.
 
 Agent akan:
 

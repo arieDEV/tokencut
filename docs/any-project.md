@@ -1,12 +1,12 @@
-# Pakai tokencut untuk project apa pun (tanpa peduli path)
+# Project apa pun — selalu aktif bila ON
 
-User cukup bilang: **"pakai tokencut"** + maksudnya.
+User tidak peduli path dan **tidak perlu** kata “pakai tokencut”.
 
-Agent wajib:
+Kalau `toggle` = ON dan ask = kerja coding di project yang ada:
 
-1. `should-use-tokencut --prompt "..."` — tolak hanya meta tokencut / greenfield murni  
-2. `detect-project` — cari repo di `/workspace` selain `tokencut`  
-3. `use-for-project --prompt "..."` — resolve + pack  
-4. Auto-continue sampai selesai + badge ✂️  
+1. `should-use-tokencut` (kecuali meta/greenfield → main)
+2. `detect-project` — pilih repo di `/workspace` selain tokencut
+3. `use-for-project` — pack + auto-continue
+4. Badge ✂️ di jawaban
 
-User **tidak** perlu tahu atau menulis path.
+Analog: dependency sudah di-`npm install` / `pip install` — tinggal dipakai.
