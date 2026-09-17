@@ -1,173 +1,256 @@
 # tokencut
 
-Fork of Spotify's [shunt](https://github.com/spotify/portal-ai-plugins/tree/main/plugins/shunt) for **this coding-agent computer**, with **no Portal and no AiKA**.
+**Mesin hemat token untuk coding agent** di komputer ini.
 
-Upstream shunt saves ~82–94% tokens by sending large file reads and boilerplate to cheap AiKA worker modes through Portal CLI. This fork keeps the same *workflow shape* but replaces AiKA with a **low-cost executor** on this machine.
+Bukan chatbot. Bukan Second Brain ops (Slack/Docs/Jira).  
+tokencut memecah kerja: file besar / boilerplate / review → worker murah atau menengah; jawaban akhir → chat utama + badge transparan.
 
-## How it works
+Terinspirasi Spotify *shunt*, **tanpa Portal / AiKA**.
 
-1. You (or the agent) run `scripts/bulk-read` or `scripts/code-write`.
-2. The script validates inputs and writes a job under `/workspace/.tokencut/jobs/<id>/` including `PROMPT.md`.
-3. stdout is a JSON manifest (`kind: tokencut-job`) telling the agent to dispatch **one executor with `model=low`** using that prompt.
-4. Large file bodies stay out of the main chat; only the worker's short answer comes back.
+---
 
-There are **no Claude Code hooks** here (those are host-specific). Enforcement is via Grok Bot skills that tell the agent when to call these scripts.
+## README ini untuk apa?
 
-## Install / paths
+Dokumen ini adalah **panduan resmi** tokencut:
+
+1. Apa itu & kapan dipakai  
+2. Cara “pasang” (sudah ada di mesin agent)  
+3. Cara hidupkan / matikan  
+4. Cara pakai (cepat → lengkap)  
+5. Badge (biar tahu low/medium/high)  
+6. Auto-continue  
+7. Troubleshooting  
+
+Rencana desain: [`docs/v2-plan.md`](docs/v2-plan.md) · Upstream Spotify: [`README.upstream.md`](README.upstream.md)
+
+---
+
+## Instalasi / lokasi
+
+Di Grok Bot computer ini **sudah terpasang**:
 
 ```text
-/workspace/tokencut/          ← this fork
-/workspace/.tokencut/jobs/    ← job prompts + manifests
+/workspace/tokencut/           ← kode + config + scripts
+/workspace/.tokencut/jobs/     ← job runtime (PROMPT, manifest, jawaban)
 ```
 
-Skills on this bot: `Bulk file read`, `Boilerplate code write` (point at these scripts).
+Tidak perlu `npm install` untuk memakai script bash/python yang ada.  
+Butuh: `bash`, `jq`, `python3` (biasanya sudah ada).
 
-## Commands
+**Clone ke mesin lain (opsional):**
 
 ```bash
-/workspace/tokencut/scripts/bulk-read \
-  --question "What does this service do?" \
-  --paths src/Service.ts src/Handler.ts
-
-/workspace/tokencut/scripts/code-write \
-  --spec "Write tests for UserService" \
-  --reference tests/OrderTest.ts \
-  --target tests/UserTest.ts
+# salin folder /workspace/tokencut
+export TOKENCUT_ROOT=/path/ke/tokencut
+export TOKENCUT_JOBS=/path/ke/.tokencut/jobs
+mkdir -p "$TOKENCUT_JOBS"
+"$TOKENCUT_ROOT/scripts/toggle" on
 ```
 
-## Env
+---
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `TOKENCUT_JOBS` | `/workspace/.tokencut/jobs` | Job directory |
-| `TOKENCUT_MAX_BYTES` | `2000000` | Max combined size for one bulk-read batch |
-| `TOKENCUT_MIN_LINES` | `350` | Hint threshold (skills); scripts do not hard-block |
-
-## What this is not
-
-- Not a drop-in Claude Code plugin (no PreToolUse hooks).
-- Not Portal/AiKA — savings depend on this host's low-effort executor pricing, not Spotify's benchmark numbers.
-- Not for debugging, surgical edits, or architecture decisions (keep those on the main agent).
-
-## Upstream
-
-See `README.upstream.md` for the original shunt design and benchmarks.
-
-## Multi-role
-
-Roles live in `config/roles.json`. Pack with `scripts/role-run`; optional pipelines via `scripts/pipeline`.
-
-| Role | Effort / model | Job |
-| --- | --- | --- |
-| `reader` | low | Bulk-read / summarize files |
-| `writer` | low | Boilerplate from a reference |
-| `reviewer` | medium | Critique a draft or diff |
-| `architect` | high | Tradeoffs on a short brief (not huge corpora) |
-| `debugger` | medium | Hypotheses from logs + source |
+## Quick start (3 menit)
 
 ```bash
-/workspace/tokencut/scripts/role-run --list
+# 1. Pastikan hidup
+/workspace/tokencut/scripts/toggle on
+/workspace/tokencut/scripts/toggle status
 
-/workspace/tokencut/scripts/role-run --role reviewer \
-  --question "Any bugs?" --paths src/foo.ts --draft /tmp/draft.ts
+# 2. Isi profil singkat (opsional tapi berguna)
+#    edit: /workspace/tokencut/config/brain.md
 
-/workspace/tokencut/scripts/pipeline --pack draft-then-review \
-  --spec "Add tests" --reference tests/a_test.ts --target tests/b_test.ts
+# 3. Pack + jalankan lewat agent (contoh SOP)
+/workspace/tokencut/scripts/cmd explain-area \
+  --question "Fungsi apa yang diekspor?" \
+  --paths src/foo.ts
 ```
 
-The JSON manifest includes `role`, `effort`, and `model_hint` so the agent dispatches the matching executor tier.
+Agent lalu: `Task` worker sesuai `model_hint` → `drive-next` sampai selesai → balas dengan badge ✂️.
 
-## Smart-route
+Atau bilang di chat: *“pakai tokencut, jelaskan file X”* — agent yang memanggil script.
 
-Heuristic detector (no LLM) that scores a natural-language prompt and optional paths, then suggests `role` + `model_hint`.
-
-```bash
-/workspace/tokencut/scripts/smart-route \
-  --prompt "Review this draft for bugs" \
-  --paths src/a.ts --draft /tmp/draft.ts
-
-# Pack when confidence is high enough:
-/workspace/tokencut/scripts/smart-route \
-  --prompt "Summarize these services" \
-  --paths a.ts b.ts c.ts \
-  --pack
-```
-
-Rules: `config/router-rules.json`. This is **not** Portal AiKA auto-routing — it is local keyword/corpus scoring. Ambiguous prompts return low confidence and should be confirmed before packing.
-
-## Visibility badge
-
-Every user-facing answer that used tokencut **must** end with a badge line so humans can see the tier:
-
-| Badge | Meaning |
-| --- | --- |
-| ✂️ … 💚 `model=low` | Cheap worker (reader/writer) |
-| ✂️ … 💛 `model=medium` | Mid worker (reviewer/debugger) |
-| ✂️ … ❤️ `model=high` | Strong worker (architect) |
-| 🧠 `main · tanpa tokencut` | Answered only on the main chat (no savings claim) |
-
-```bash
-/workspace/tokencut/scripts/badge --from-job /workspace/.tokencut/jobs/<id>/manifest.json
-/workspace/tokencut/scripts/badge --none
-```
-
-Put the badge as the **last line** of the chat reply. Never claim token savings without a ✂️ badge and job id.
+---
 
 ## On / off
 
 ```bash
-/workspace/tokencut/scripts/toggle status   # lihat status
-/workspace/tokencut/scripts/toggle on       # hidupkan tokencut
-/workspace/tokencut/scripts/toggle off      # matikan (agent jawab di main chat)
+/workspace/tokencut/scripts/toggle status
+/workspace/tokencut/scripts/toggle on
+/workspace/tokencut/scripts/toggle off              # matikan SEMUA tokencut
+/workspace/tokencut/scripts/toggle auto-continue on|off
 /workspace/tokencut/scripts/toggle badge on|off
 /workspace/tokencut/scripts/toggle smart-route on|off
-```
-
-State file: `config/settings.json` (`enabled`, `badge`, `smart_route`).
-When `enabled=false`, `role-run` / `bulk-read` / `code-write` / `smart-route` refuse to pack jobs.
-
-## tokencut v2
-
-Upgrade pola Second Brain (tanpa Slack/Docs/ops):
-
-| Fitur | Perintah / path |
-| --- | --- |
-| Brain (profil) | `config/brain.md` (+ template) — di-inject ke prompt worker |
-| Learn | `scripts/learn add\|list\|clear` → `memory/lessons.md` |
-| Commands/SOP | `scripts/cmd --list` · `explain-area` · `review-change` · `design-choice` |
-| Synthesizer | role `synthesizer` (high); wajib di akhir pipeline berat |
-| Badge chain | `scripts/badge --chain reader:low,synthesizer:high --job-id …` |
-| Smart-route v2 | `scripts/smart-route` (+ sinyal ringan dari brain/lessons) |
-| On/off | `scripts/toggle on\|off` |
-
-Rencana lengkap: [`docs/v2-plan.md`](docs/v2-plan.md).
-
-### Post-MVP utilities
-
-```bash
-/workspace/tokencut/scripts/last 3
 /workspace/tokencut/scripts/toggle inject-brain on|off
 /workspace/tokencut/scripts/toggle inject-lessons on|off
-/workspace/tokencut/tests/smart-route-golden.sh
 ```
 
-### Ambiguous prompts & e2e
+State: `config/settings.json`
+
+| Perintah | Arti |
+| --- | --- |
+| `toggle off` | Tokencut mati total → jawaban di chat utama (🧠) |
+| `toggle auto-continue off` | Tetap bisa pack job, tapi agent tidak wajib auto-lanjut step |
+| `toggle on` + `auto-continue on` | Mode normal yang disarankan |
+
+---
+
+## Cara pakai
+
+### A. SOP siap pakai (`cmd`)
 
 ```bash
-/workspace/tokencut/scripts/smart-route --prompt "tolong bantu" --classify
-/workspace/tokencut/scripts/classify-ambiguous --prompt "..." [--paths ...]
+/workspace/tokencut/scripts/cmd --list
+
+/workspace/tokencut/scripts/cmd explain-area \
+  --question "..." --paths f1.ts f2.ts
+
+/workspace/tokencut/scripts/cmd review-change \
+  --spec "..." --reference ref.ts --target out.ts
+
+/workspace/tokencut/scripts/cmd design-choice \
+  --question "..." --paths f1.ts
+```
+
+### B. Role langsung (`role-run`)
+
+| Role | Model | Untuk |
+| --- | --- | --- |
+| `reader` | low 💚 | Baca / ringkas file besar |
+| `writer` | low 💚 | Boilerplate dari referensi |
+| `reviewer` | medium 💛 | Kritik draft/diff |
+| `debugger` | medium 💛 | Error / log / stack trace |
+| `architect` | high ❤️ | Tradeoff (brief pendek) |
+| `synthesizer` | high ❤️ | Gabung output worker → jawaban akhir |
+
+```bash
+/workspace/tokencut/scripts/role-run --list
+
+/workspace/tokencut/scripts/role-run --role reader \
+  --question "Apa yang dilakukan modul ini?" \
+  --paths src/a.ts src/b.ts
+```
+
+Stdout = JSON job. Agent wajib `Task` executor dengan `model=<model_hint>` dan isi `prompt_file`.
+
+### C. Prompt kabur → classifier
+
+```bash
+/workspace/tokencut/scripts/resolve-prompt \
+  --prompt "Tolong bantu soal file ini" --paths f.ts
+# → Task classifier (low) → simpan answer.json
+
+/workspace/tokencut/scripts/apply-classify --job-dir <classifier_job_dir>
+# → pack role terpilih → Task worker → drive-next
+```
+
+### D. Smart-route (heuristik)
+
+```bash
+/workspace/tokencut/scripts/smart-route \
+  --prompt "Review draft ini" --paths a.ts --draft draft.ts --classify
+```
+
+### E. Shortcut lama
+
+```bash
+/workspace/tokencut/scripts/bulk-read --question "..." --paths ...
+/workspace/tokencut/scripts/code-write --spec "..." --reference ref.ts [--target out.ts]
+```
+
+### F. Maju step & inspeksi
+
+```bash
+/workspace/tokencut/scripts/drive-next [--job-dir DIR]
+/workspace/tokencut/scripts/last 3
 /workspace/tokencut/scripts/e2e --question "..." --paths file.ts
 ```
 
-## Auto-continue
+---
 
-Setelah job/pipeline tokencut dimulai, agent **melanjutkan semua step sampai selesai** tanpa menunggu user mengetik “lanjut”. Berhenti hanya jika user minta stop, butuh approval destruktif, atau ambigu yang memblokir. Lihat `docs/auto-continue.md`.
+## Badge (wajib terlihat)
 
-### Resolve ambiguous prompts (auto-continue)
+Supaya tahu jawaban pakai tokencut atau main chat:
 
 ```bash
-/workspace/tokencut/scripts/resolve-prompt --prompt "..." --paths f.ts
-# → Task classifier low → save answer.json
-/workspace/tokencut/scripts/apply-classify --job-dir <classifier_job_dir>
-# → Task chosen role → drive-next until done
+/workspace/tokencut/scripts/badge --from-job .../manifest.json
+/workspace/tokencut/scripts/badge --chain reader:low,synthesizer:high --job-id ...
+/workspace/tokencut/scripts/badge --none
 ```
+
+Contoh baris akhir chat:
+
+```text
+✂️ tokencut chain 📖reader💚→🧵synthesizer❤️ · job=20260918-...
+🧠 main · tanpa tokencut · model=chat-utama
+```
+
+Tanpa ✂️ + job id → **jangan klaim hemat token**.
+
+---
+
+## Brain & learn
+
+```bash
+# Profil user/tim (di-inject ke prompt worker)
+$EDITOR /workspace/tokencut/config/brain.md
+# Template: config/brain.md.template
+
+# Simpan koreksi supaya session berikutnya ingat
+/workspace/tokencut/scripts/learn add \
+  --title "prefer path:line" \
+  --tags reader,general \
+  --text "Klaim penting harus pakai path:line"
+/workspace/tokencut/scripts/learn list
+```
+
+---
+
+## Auto-continue
+
+Jika `auto_continue=ON`, setelah job/pipeline mulai agent **menyelesaikan semua step** tanpa menunggu “lanjut”, kecuali stop / approval destruktif / ambigu memblokir.
+
+Lihat [`docs/auto-continue.md`](docs/auto-continue.md).
+
+---
+
+## Alur tipikal (agent)
+
+```
+User minta kerja coding
+    → toggle status (harus ON)
+    → resolve-prompt / cmd / smart-route / role-run
+    → Task worker (model_hint)
+    → drive-next (ulang sampai action=done)
+    → balas user + badge ✂️
+```
+
+---
+
+## Tes regresi
+
+```bash
+/workspace/tokencut/tests/smart-route-golden.sh
+```
+
+---
+
+## Bukan untuk
+
+- Integrasi Slack / Docs / Calendar / Jira / meeting recorder  
+- Keputusan arsitektur murni tanpa brief (tetap main / architect dengan brief pendek)  
+- Klaim angka hemat 90% Spotify (benchmark mereka; di sini tergantung harga worker host)
+
+---
+
+## Struktur folder
+
+```text
+tokencut/
+  config/     roles.json, settings.json, brain.md, commands/, router-rules.json
+  scripts/    CLI utama
+  memory/     lessons.md
+  docs/       v2-plan, auto-continue, followups
+  tests/      golden smart-route
+```
+
+Jobs runtime: `/workspace/.tokencut/jobs/<id>/`
