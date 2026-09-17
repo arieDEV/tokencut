@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Decide if tokencut should handle this user ask.
+# Usage: should-use-tokencut --prompt "..." [--paths p1 p2]
+# Prints JSON: {use:true|false, reason:"..."}; exit 0 always (unless bad args).
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+prompt=""
+paths=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --prompt) prompt="$2"; shift 2 ;;
+    --paths)
+      shift
+      while [[ $# -gt 0 && ! "$1" =~ ^-- ]]; do paths+=("$1"); shift; done
+      ;;
+    -h|--help)
+      echo "Usage: should-use-tokencut --prompt \"...\" [--paths ...]"
+      exit 0
+      ;;
+    *) echo "Unknown: $1" >&2; exit 2 ;;
+  esac
+done
+[[ -n "$prompt" ]] || { echo '{"use":false,"reason":"missing prompt"}'; exit 2; }
+
+# If tokencut disabled globally
+en=$(jq -r '.enabled // true' "$ROOT/config/settings.json" 2>/dev/null || echo true)
+if [[ "$en" != "true" ]]; then
+  jq -n '{use:false,reason:"tokencut toggled OFF"}'
+  exit 0
+fi
+
+pl=$(printf '%s' "$prompt" | tr '[:upper:]' '[:lower:]')
+
+# --- META: working ON tokencut itself ---
+meta_kw='modifikasi tokencut|ubah tokencut|edit tokencut|perbaiki tokencut|fix tokencut|upgrade tokencut|tokencut sendiri|repo tokencut|/workspace/tokencut|develop tokencut|improve tokencut|refactor tokencut'
+if echo "$pl" | grep -Eq "$meta_kw"; then
+  jq -n '{use:false,reason:"meta: user is modifying tokencut itself — use main agent",mode:"main"}'
+  exit 0
+fi
+
+# Paths inside tokencut repo → usually meta (except reading as example)
+for p in "${paths[@]+"${paths[@]}"}"; do
+  case "$p" in
+    /workspace/tokencut/*|tokencut/*)
+      # Allow pure "explain this file" on tokencut sources if ask is clearly read-only
+      if echo "$pl" | grep -Eq 'jelaskan|ringkas|apa isi|what does|summar|explain|baca'; then
+        jq -n --arg p "$p" '{use:true,reason:("read-only ask on tokencut path "+$p),mode:"tokencut"}'
+        exit 0
+      fi
+      jq -n --arg p "$p" '{use:false,reason:("path is inside tokencut: "+$p+" — treat as meta/dev unless read-only"),mode:"main"}'
+      exit 0
+      ;;
+  esac
+done
+
+# --- Greenfield / new project (code-changes skill territory) ---
+new_kw='project baru|projek baru|buat app|bikin app|scaffold|greenfield|new repo|buat project|create a new|from scratch|boilerplate project|setup project baru|buat aplikasi'
+if echo "$pl" | grep -Eq "$new_kw"; then
+  jq -n '{use:false,reason:"greenfield/new project — use main coding flow (code-changes), not tokencut pipelines",mode:"main"}'
+  exit 0
+fi
+
+# --- Discussing tokencut product (docs/status), not bulk coding ---
+doc_kw='readme tokencut|cara pakai tokencut|apa itu tokencut|status tokencut|toggle tokencut|auto.continue'
+if echo "$pl" | grep -Eq "$doc_kw"; then
+  jq -n '{use:false,reason:"tokencut product/docs question — answer on main",mode:"main"}'
+  exit 0
+fi
+
+jq -n '{use:true,reason:"default: eligible for tokencut if bulk/boilerplate/review fits",mode:"tokencut"}'

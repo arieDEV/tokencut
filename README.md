@@ -71,6 +71,25 @@ Atau bilang di chat: *“pakai tokencut, jelaskan file X”* — agent yang mema
 
 ---
 
+
+
+## Kapan pakai / kapan jangan
+
+| Situasi | Mode |
+| --- | --- |
+| Baca file besar / boilerplate / review di **project user** | ✂️ tokencut |
+| **Modifikasi tokencut** sendiri | 🧠 main |
+| **Project baru** / scaffold app | 🧠 main (+ code-changes) |
+| Tanya cara pakai / status tokencut | 🧠 main |
+
+Gate:
+
+```bash
+/workspace/tokencut/scripts/should-use-tokencut --prompt "..." [--paths ...]
+```
+
+Detail: [`docs/when-to-use.md`](docs/when-to-use.md).
+
 ## On / off
 
 ```bash

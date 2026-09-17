@@ -16,3 +16,9 @@ Once the user starts (or accepts) a tokencut job/pipeline, the agent MUST drive 
 
 ## Visibility
 Still append the final ✂️ badge (or chain badge). Mid-pipeline, brief status updates are OK; do not wait for a reply to proceed.
+
+## Exception: meta & greenfield
+
+Auto-continue **does not apply** when `should-use-tokencut` returns `use=false`
+(modifying tokencut itself, new project scaffold, product/docs questions).
+Those stay on the main agent (🧠).

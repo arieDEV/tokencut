@@ -13,3 +13,13 @@ Do **not** ask the user to type “lanjut” between tokencut steps.
 4. Only pause for: user stop, destructive approval, or blocking ambiguity.
 
 See `docs/auto-continue.md`.
+
+## Gate (wajib)
+
+Before routing to tokencut, run:
+
+```bash
+/workspace/tokencut/scripts/should-use-tokencut --prompt "<user ask>" [--paths ...]
+```
+
+If `use=false` (modifying tokencut, new project, product docs) → **do not** pack jobs; work on main chat with `badge --none`.
