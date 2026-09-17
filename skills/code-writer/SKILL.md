@@ -1,10 +1,10 @@
 ---
 name: code-writer
-description: Delegate boilerplate generation via shunt-local (no Portal). Use when >80% is predictable from a reference file.
+description: Delegate boilerplate generation via tokencut (no Portal). Use when >80% is predictable from a reference file.
 ---
 
 ```bash
-/workspace/shunt-local/scripts/code-write --spec "<spec>" --reference <ref> [--target <out>]
+/workspace/tokencut/scripts/code-write --spec "<spec>" --reference <ref> [--target <out>]
 ```
 
 1. Run the script.

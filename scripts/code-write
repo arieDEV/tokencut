@@ -42,14 +42,14 @@ if [[ -n "$target" && "$target" != /* ]]; then
   target="$(cd "$(dirname "$target")" && pwd)/$(basename "$target")"
 fi
 
-shunt_local_preflight || exit 1
-shunt_local_check_readable "$reference" || exit 1
+tokencut_preflight || exit 1
+tokencut_check_readable "$reference" || exit 1
 
-shunt_local_new_job code-writer
+tokencut_new_job code-writer
 
 {
   cat <<'HDR'
-# Boilerplate code write (shunt-local)
+# Boilerplate code write (tokencut)
 
 You are a low-cost worker. Generate code that matches the reference file's patterns, naming, and style. Read the reference with the Read tool. Output only code — no explanations, no markdown fences unless the spec asks for them.
 
@@ -82,4 +82,4 @@ HDR
 printf '%s\n' "$reference" > "${JOB_DIR}/reference.txt"
 [[ -n "$target" ]] && printf '%s\n' "$target" > "${JOB_DIR}/target.txt"
 
-shunt_local_emit_job code-writer "code-write: ref=$(basename "$reference")${target:+ → $(basename "$target")}"
+tokencut_emit_job code-writer "code-write: ref=$(basename "$reference")${target:+ → $(basename "$target")}"

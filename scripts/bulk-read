@@ -51,24 +51,24 @@ for p in "${paths[@]}"; do
   fi
 done
 
-shunt_local_preflight || exit 1
-shunt_local_check_readable "${abs_paths[@]}" || exit 1
+tokencut_preflight || exit 1
+tokencut_check_readable "${abs_paths[@]}" || exit 1
 
 total_bytes=0
 for p in "${abs_paths[@]}"; do
   b=$(wc -c < "$p" | tr -d ' ')
   total_bytes=$((total_bytes + b))
 done
-if [[ "$total_bytes" -gt "$SHUNT_LOCAL_MAX_BYTES" ]]; then
-  echo "Error: combined size ${total_bytes} bytes exceeds SHUNT_LOCAL_MAX_BYTES=${SHUNT_LOCAL_MAX_BYTES}. Split the batch." >&2
+if [[ "$total_bytes" -gt "$TOKENCUT_MAX_BYTES" ]]; then
+  echo "Error: combined size ${total_bytes} bytes exceeds TOKENCUT_MAX_BYTES=${TOKENCUT_MAX_BYTES}. Split the batch." >&2
   exit 1
 fi
 
-shunt_local_new_job bulk-reader
+tokencut_new_job bulk-reader
 
 {
   cat <<'HDR'
-# Bulk file read (shunt-local)
+# Bulk file read (tokencut)
 
 You are a low-cost worker. Read ONLY the files listed below (use the Read tool on this computer). Answer the question in structured bullets. Lead every bullet with an exact name, type, or line number. No greetings, no preamble, no long quotes of source. Skip anything the question did not ask for.
 
@@ -96,4 +96,4 @@ HDR
 # Copy path list for tooling
 printf '%s\n' "${abs_paths[@]}" > "${JOB_DIR}/paths.txt"
 
-shunt_local_emit_job bulk-reader "bulk-read: ${#abs_paths[@]} file(s), ${total_bytes} bytes"
+tokencut_emit_job bulk-reader "bulk-read: ${#abs_paths[@]} file(s), ${total_bytes} bytes"

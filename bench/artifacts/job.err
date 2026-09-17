@@ -1,0 +1,3 @@
+[shunt-local: job 20260918-042836-9507-bulk-reader | mode=bulk-reader | effort=low]
+[shunt-local: prompt → /workspace/.shunt-local/jobs/20260918-042836-9507-bulk-reader/PROMPT.md]
+[shunt-local: next → Task executor model=low with that prompt]

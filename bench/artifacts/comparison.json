@@ -1,0 +1,103 @@
+{
+  "generated_at": "2026-09-18T04:29:51.677336+07:00",
+  "fork_working_name": "tokencut",
+  "corpus_files": [
+    {
+      "path": "/workspace/tokencut/README.md",
+      "bytes": 2213,
+      "lines": 54,
+      "approx_tokens": 553
+    },
+    {
+      "path": "/workspace/tokencut/README.upstream.md",
+      "bytes": 9125,
+      "lines": 192,
+      "approx_tokens": 2281
+    },
+    {
+      "path": "/workspace/tokencut/scripts/lib/delegate.sh",
+      "bytes": 2206,
+      "lines": 70,
+      "approx_tokens": 551
+    },
+    {
+      "path": "/workspace/portal-ai-plugins/plugins/shunt/scripts/lib/aika.sh",
+      "bytes": 6322,
+      "lines": 166,
+      "approx_tokens": 1580
+    },
+    {
+      "path": "/workspace/portal-ai-plugins/plugins/shunt/README.md",
+      "bytes": 9125,
+      "lines": 192,
+      "approx_tokens": 2281
+    }
+  ],
+  "before": {
+    "mode": "direct-read-into-main-chat",
+    "files": [
+      {
+        "path": "/workspace/tokencut/README.md",
+        "bytes": 2213,
+        "lines": 54,
+        "approx_tokens": 553
+      },
+      {
+        "path": "/workspace/tokencut/README.upstream.md",
+        "bytes": 9125,
+        "lines": 192,
+        "approx_tokens": 2281
+      },
+      {
+        "path": "/workspace/tokencut/scripts/lib/delegate.sh",
+        "bytes": 2206,
+        "lines": 70,
+        "approx_tokens": 551
+      },
+      {
+        "path": "/workspace/portal-ai-plugins/plugins/shunt/scripts/lib/aika.sh",
+        "bytes": 6322,
+        "lines": 166,
+        "approx_tokens": 1580
+      },
+      {
+        "path": "/workspace/portal-ai-plugins/plugins/shunt/README.md",
+        "bytes": 9125,
+        "lines": 192,
+        "approx_tokens": 2281
+      }
+    ],
+    "total_bytes": 28991,
+    "total_lines": 674,
+    "approx_tokens_in_main": 7247,
+    "note": "Semua isi file masuk konteks chat utama (estimasi token \u2248 bytes/4)."
+  },
+  "after": {
+    "mode": "tokencut bulk-read + low executor",
+    "job_id": "20260918-042836-9507-bulk-reader",
+    "prompt_bytes": 1060,
+    "prompt_approx_tokens": 265,
+    "answer_bytes": 2586,
+    "answer_approx_tokens": 646,
+    "main_chat_bytes": 3646,
+    "main_chat_approx_tokens": 911,
+    "worker_input_bytes_approx": 30051,
+    "worker_input_approx_tokens": 7512,
+    "worker_tier": "low",
+    "note": "Main chat only carries the job prompt + short answer. Full file bodies are read inside the low-cost worker."
+  },
+  "delta": {
+    "main_tokens_before": 7247,
+    "main_tokens_after": 911,
+    "main_tokens_saved": 6336,
+    "main_token_reduction_pct": 87.4,
+    "main_bytes_before": 28991,
+    "main_bytes_after": 3646
+  },
+  "caveats": [
+    "Token counts are approximate (bytes/4), not a provider billing meter.",
+    "Worker still processes the full corpus on the low tier; savings are mainly on the expensive main chat.",
+    "This is not Spotify's 90% AiKA figure \u2014 that needs Portal + AiKA pricing.",
+    "Quality depends on the worker answer; spot-check line numbers before editing."
+  ]
+}

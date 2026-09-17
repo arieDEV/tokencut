@@ -1,10 +1,10 @@
 ---
 name: bulk-reader
-description: Delegate bulk file reading via shunt-local (no Portal). Use for files >350 lines, 3+ files, or large diffs.
+description: Delegate bulk file reading via tokencut (no Portal). Use for files >350 lines, 3+ files, or large diffs.
 ---
 
 ```bash
-/workspace/shunt-local/scripts/bulk-read --question "<question>" --paths <file1> [<file2> ...]
+/workspace/tokencut/scripts/bulk-read --question "<question>" --paths <file1> [<file2> ...]
 ```
 
 1. Run the script.

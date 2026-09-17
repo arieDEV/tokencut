@@ -1,34 +1,34 @@
 #!/usr/bin/env bash
-# Shared plumbing for shunt-local: pack a job for a low-cost executor.
+# Shared plumbing for tokencut: pack a job for a low-cost executor.
 # No Portal, no AiKA — the coding agent runs an executor with model=low
 # using the prompt file this library writes.
 
 set -euo pipefail
 
-SHUNT_LOCAL_ROOT="${SHUNT_LOCAL_ROOT:-/workspace/shunt-local}"
-SHUNT_LOCAL_JOBS="${SHUNT_LOCAL_JOBS:-/workspace/.shunt-local/jobs}"
-SHUNT_LOCAL_MAX_BYTES="${SHUNT_LOCAL_MAX_BYTES:-2000000}"
-SHUNT_LOCAL_MIN_LINES="${SHUNT_LOCAL_MIN_LINES:-350}"
+TOKENCUT_ROOT="${TOKENCUT_ROOT:-/workspace/tokencut}"
+TOKENCUT_JOBS="${TOKENCUT_JOBS:-/workspace/.tokencut/jobs}"
+TOKENCUT_MAX_BYTES="${TOKENCUT_MAX_BYTES:-2000000}"
+TOKENCUT_MIN_LINES="${TOKENCUT_MIN_LINES:-350}"
 
-shunt_local_preflight() {
+tokencut_preflight() {
   command -v jq >/dev/null 2>&1 || {
     echo "Error: jq is required (apt install jq / brew install jq)" >&2
     return 1
   }
-  mkdir -p "$SHUNT_LOCAL_JOBS"
+  mkdir -p "$TOKENCUT_JOBS"
 }
 
 # Create a unique job directory. Sets JOB_DIR, JOB_ID, PROMPT_FILE, MANIFEST_FILE.
-shunt_local_new_job() {
+tokencut_new_job() {
   local mode="$1"
   JOB_ID="$(date +%Y%m%d-%H%M%S)-$$-${mode}"
-  JOB_DIR="${SHUNT_LOCAL_JOBS}/${JOB_ID}"
+  JOB_DIR="${TOKENCUT_JOBS}/${JOB_ID}"
   mkdir -p "$JOB_DIR"
   PROMPT_FILE="${JOB_DIR}/PROMPT.md"
   MANIFEST_FILE="${JOB_DIR}/manifest.json"
 }
 
-shunt_local_check_readable() {
+tokencut_check_readable() {
   local path
   for path in "$@"; do
     if [[ ! -f "$path" || ! -r "$path" ]]; then
@@ -40,12 +40,12 @@ shunt_local_check_readable() {
 
 # Emit machine-readable job JSON to stdout (for the agent).
 # Human notes go to stderr.
-shunt_local_emit_job() {
+tokencut_emit_job() {
   local mode="$1"
   local summary="$2"
 
   jq -n \
-    --arg kind "shunt-local-job" \
+    --arg kind "tokencut-job" \
     --arg mode "$mode" \
     --arg effort "low" \
     --arg job_id "$JOB_ID" \
@@ -64,7 +64,7 @@ shunt_local_emit_job() {
       summary: $summary
     }' | tee "$MANIFEST_FILE"
 
-  echo "[shunt-local: job $JOB_ID | mode=$mode | effort=low]" >&2
-  echo "[shunt-local: prompt → $PROMPT_FILE]" >&2
-  echo "[shunt-local: next → Task executor model=low with that prompt]" >&2
+  echo "[tokencut: job $JOB_ID | mode=$mode | effort=low]" >&2
+  echo "[tokencut: prompt → $PROMPT_FILE]" >&2
+  echo "[tokencut: next → Task executor model=low with that prompt]" >&2
 }

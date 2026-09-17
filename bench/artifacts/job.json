@@ -1,0 +1,11 @@
+{
+  "kind": "tokencut-job",
+  "mode": "bulk-reader",
+  "effort": "low",
+  "model_hint": "low",
+  "job_id": "20260918-042836-9507-bulk-reader",
+  "job_dir": "/workspace/.tokencut/jobs/20260918-042836-9507-bulk-reader",
+  "prompt_file": "/workspace/.tokencut/jobs/20260918-042836-9507-bulk-reader/PROMPT.md",
+  "agent_instruction": "Dispatch one executor with model=low. Pass the full contents of prompt_file as the task. Do not load the listed source files into the main chat. Return only the worker answer to the user.",
+  "summary": "bulk-read: 5 file(s), 28991 bytes"
+}
