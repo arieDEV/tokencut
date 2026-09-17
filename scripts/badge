@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+"""Print a user-visible tokencut badge line from a job manifest or CLI flags.
+
+Examples:
+  badge --from-job /workspace/.tokencut/jobs/.../manifest.json
+  badge --role reader --model low --job-id 2026... --saved-approx 87
+  badge --none
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+MODEL_EMOJI = {
+    "low": "💚",
+    "medium": "💛",
+    "high": "❤️",
+}
+ROLE_EMOJI = {
+    "reader": "📖",
+    "writer": "✍️",
+    "reviewer": "🔎",
+    "architect": "🏗️",
+    "debugger": "🐛",
+}
+
+
+def badge_tokencut(*, role: str, model: str, job_id: str | None = None, saved_pct: float | None = None) -> str:
+    re = ROLE_EMOJI.get(role, "✂️")
+    me = MODEL_EMOJI.get(model, "⚪")
+    parts = [f"✂️ tokencut {re} {role}", f"{me} model={model}"]
+    if job_id:
+        parts.append(f"job={job_id}")
+    if saved_pct is not None:
+        parts.append(f"hemat≈{saved_pct:.0f}% konteks utama")
+    return " · ".join(parts)
+
+
+def badge_main() -> str:
+    return "🧠 main · tanpa tokencut · model=chat-utama"
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Emit a tokencut visibility badge for chat replies")
+    ap.add_argument("--from-job", help="Path to tokencut job manifest.json")
+    ap.add_argument("--role")
+    ap.add_argument("--model")
+    ap.add_argument("--job-id")
+    ap.add_argument("--saved-approx", type=float, help="Optional %% main-context savings to show")
+    ap.add_argument("--none", action="store_true", help="Badge for a normal main-chat answer")
+    args = ap.parse_args()
+
+    if args.none:
+        print(badge_main())
+        return 0
+
+    role = args.role
+    model = args.model
+    job_id = args.job_id
+
+    if args.from_job:
+        data = json.loads(Path(args.from_job).read_text())
+        role = role or data.get("role") or (data.get("mode") or "").removeprefix("role-")
+        model = model or data.get("model_hint") or data.get("effort")
+        job_id = job_id or data.get("job_id")
+
+    if not role or not model:
+        print("Error: need --from-job or both --role and --model (or --none)", file=sys.stderr)
+        return 2
+
+    print(badge_tokencut(role=role, model=model, job_id=job_id, saved_pct=args.saved_approx))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

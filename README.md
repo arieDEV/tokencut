@@ -94,3 +94,21 @@ Heuristic detector (no LLM) that scores a natural-language prompt and optional p
 ```
 
 Rules: `config/router-rules.json`. This is **not** Portal AiKA auto-routing — it is local keyword/corpus scoring. Ambiguous prompts return low confidence and should be confirmed before packing.
+
+## Visibility badge
+
+Every user-facing answer that used tokencut **must** end with a badge line so humans can see the tier:
+
+| Badge | Meaning |
+| --- | --- |
+| ✂️ … 💚 `model=low` | Cheap worker (reader/writer) |
+| ✂️ … 💛 `model=medium` | Mid worker (reviewer/debugger) |
+| ✂️ … ❤️ `model=high` | Strong worker (architect) |
+| 🧠 `main · tanpa tokencut` | Answered only on the main chat (no savings claim) |
+
+```bash
+/workspace/tokencut/scripts/badge --from-job /workspace/.tokencut/jobs/<id>/manifest.json
+/workspace/tokencut/scripts/badge --none
+```
+
+Put the badge as the **last line** of the chat reply. Never claim token savings without a ✂️ badge and job id.
