@@ -1,28 +1,19 @@
 # tokencut
 
-**Hemat token untuk coding agent** — worker lokal di komputer agent.  
-Bukan chatbot. Bukan “mode chat”. Mirip dependency (`npm` / `pip`): pasang sekali, lalu jalan sendiri.
+Local **token-saving workers** for coding agents. Inspired by Spotify’s *shunt*, with **no Portal / AiKA**.
 
-Inspired by Spotify *shunt*, **tanpa Portal / AiKA**.
+Treat tokencut as an installable dependency (similar to a local CLI package): install once, leave it enabled, and let the agent route suitable coding work to cheaper workers. It is **not** a chat product, thread mode, or browser extension.
 
----
+## Compatibility
 
-## Cocok untuk siapa?
+| Environment | Supported | Notes |
+| --- | :---: | --- |
+| [Cursor](https://cursor.com) | Yes | `./scripts/install` links skills under `~/.cursor/skills/tokencut` |
+| Hosted coding agents with a shell (VM / box) | Yes | Install wires agent workflow/skill directories when present |
+| Any agent that can run shell scripts and spawn workers | Yes | Set `TOKENCUT_ROOT` and load the skills under `skills/` |
+| Browser-only chat (no machine shell) | No | Requires a machine where the agent can execute scripts |
 
-| Kamu pakai… | Support? | Cara |
-| --- | --- | --- |
-| **Cursor** (IDE) | ✅ Ya | One-click `./scripts/install` → skills masuk `~/.cursor/skills/tokencut` |
-| **Grok Bot** / agent di box (seperti agent yang bantu kamu di chat ini) | ✅ Ya | `install` memasang skill ke folder workflows agent |
-| Coding agent lain yang bisa jalankan shell + worker murah | ✅ Ya | Set `TOKENCUT_ROOT` + symlinks skills |
-| ChatGPT web / Claude.ai web (tanpa akses shell komputer) | ❌ Tidak | Perlu agent yang punya terminal di mesin |
-
-**Singkat:** tokencut hidup di **komputer agent** (Cursor box / Grok Bot computer / CI), bukan di browser chat biasa.
-
----
-
-## Setup one-click (otomatis ON)
-
-Di mesin tempat agent bekerja:
+## One-click install
 
 ```bash
 git clone https://github.com/arieDEV/tokencut.git
@@ -30,103 +21,48 @@ cd tokencut
 ./scripts/install
 ```
 
-Itu yang dilakukan install:
+The installer:
 
-1. `toggle on` — tokencut aktif seperti dependency terpasang  
-2. Set `TOKENCUT_ROOT` + `TOKENCUT_JOBS`  
-3. Pasang skills ke **Cursor** dan/atau **Grok Bot** (kalau foldernya ada)  
-4. Siap — **tidak perlu** bilang “pakai tokencut”
+1. Enables tokencut (`toggle on`)
+2. Sets `TOKENCUT_ROOT` and `TOKENCUT_JOBS`
+3. Links skills for Cursor and compatible agent workflow directories when found
 
-Cek:
+Verify:
 
 ```bash
 ./scripts/toggle status
 ```
 
-Harus kelihatan **ON**.
+More detail: [docs/SETUP.md](docs/SETUP.md).
 
-> One-click ini **ada di repo** (`scripts/install`). Kalau README lama terasa rumit: itu yang kurang jelas, bukan fiturnya tidak ada.
+## Usage
 
----
+With tokencut **on**, ask normal coding questions about an **existing** project (explain an area, review a draft, generate boilerplate from a reference). The agent should invoke tokencut without special wake words.
 
-## Cara pakai (orang awam)
-
-1. Pasang dengan `./scripts/install` (sekali).  
-2. Buka project kode yang sudah ada di komputer agent.  
-3. Chat biasa ke agent, contoh:
-   - “Jelaskan alur login”
-   - “Review file auth ini”
-   - “Buat boilerplate test dari contoh ini”
-4. Kalau tokencut ikut kerja, jawaban diakhiri badge **✂️** + job id.  
-5. Kalau badge **🧠** / tanpa ✂️ → agent jawab langsung (biasanya: edit tokencut sendiri, bikin project baru, atau `toggle off`).
-
-Kamu **tidak** perlu hafal path atau perintah. Agent yang jalanin script-nya.
-
-Matikan total:
+Successful tokencut runs end with a **✂️** badge and job id. Direct answers (meta work on tokencut itself, greenfield scaffolds, or `toggle off`) do not claim savings and use a non-scissors badge.
 
 ```bash
-./scripts/toggle off
+./scripts/toggle off    # disable globally
+./scripts/toggle on
 ```
 
----
+## When tokencut runs
 
-## Apa yang terjadi di belakang?
+| Situation | Expected path |
+| --- | --- |
+| Read / summarize / review / boilerplate on an existing user project | tokencut workers + ✂️ |
+| Changing this repository, scaffolding a new project, or product Q&A about tokencut | Direct agent answer |
+| `toggle off` | Direct agent answer |
 
-```text
-Kamu tanya soal kode
-        ↓
-Gate: cocok untuk tokencut? (bukan edit tokencut / project baru)
-        ↓
-Deteksi project → worker murah baca/tulis/review
-        ↓
-(pipeline lanjut otomatis)
-        ↓
-Jawaban + badge ✂️
-```
+Agent routing notes: [docs/PUBLIC.md](docs/PUBLIC.md) · [docs/when-to-use.md](docs/when-to-use.md)
 
-Detail untuk author agent: [`docs/PUBLIC.md`](docs/PUBLIC.md)
-
----
-
-## Support IDE / agent (ringkas)
-
-| | Cursor | Grok Bot / box agent | Agent CLI lain |
-| --- | :---: | :---: | :---: |
-| One-click install | ✅ | ✅ | ✅ (env + skills) |
-| Auto pakai tanpa kata ajaib | ✅ (via skills) | ✅ (via skills) | ✅ jika agent ikut skill |
-| Badge ✂️ | ✅ | ✅ | ✅ |
-
----
-
-## Perintah berguna (opsional)
-
-Hanya kalau kamu suka CLI; sehari-hari cukup chat ke agent.
-
-```bash
-export TOKENCUT_ROOT=/path/ke/tokencut
-
-"$TOKENCUT_ROOT/scripts/toggle" status
-"$TOKENCUT_ROOT/scripts/detect-project" --json
-"$TOKENCUT_ROOT/scripts/use-for-project" --prompt "Jelaskan struktur singkat"
-```
-
----
-
-## Syarat
+## Requirements
 
 - `bash`, `jq`, `python3`
-- Agent yang bisa menjalankan shell di mesin yang sama dengan repo project
+- A coding agent that can run shell commands on the same machine as the project
 
----
+## License
 
-## Lisensi
-
-MIT — lihat [`LICENSE`](LICENSE)
+MIT — see [LICENSE](LICENSE).
 
 Release: [v1.0.0](https://github.com/arieDEV/tokencut/releases/tag/v1.0.0)
-
----
-
-## Bahasa Inggris (one paragraph)
-
-tokencut is a **local installable dependency** for coding agents (Cursor, Grok Bot, etc.). Run `./scripts/install` once; when ON it auto-routes heavy read/boilerplate/review work to cheaper workers and shows a ✂️ badge. It is not a chat mode and does not run inside browser-only chat products.

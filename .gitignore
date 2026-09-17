@@ -1,34 +1,33 @@
-# Local / personal profile (ship template only)
+# Local profile & learned state (templates/examples are tracked)
 config/brain.md
 config/brain.local.md
+config/settings.json
+memory/lessons.md
 memory/lessons.local.md
+*.local.md
 
-# Runtime jobs & local state
+# Install / runtime
+.install-stamp.json
 .tokencut/
 jobs/
 *.job/
+bench/artifacts/
 
-# Python / OS junk
+# Secrets & env
+.env
+.env.*
+!.env.example
+
+# Python / OS / editor
 __pycache__/
 *.py[cod]
 *$py.class
 .Python
 .DS_Store
 Thumbs.db
-
-# Editor / env
-.env
-.env.*
-!.env.example
 *.swp
 *.swo
 .idea/
 .vscode/
-*.local.md
 
-# Packaged exports (optional local artifacts)
 *.tgz
-!docs/**
-
-# Bench runtime outputs (keep HTML demo if present)
-bench/artifacts/

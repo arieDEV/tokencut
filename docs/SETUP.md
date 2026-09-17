@@ -1,4 +1,6 @@
-# Setup one-click
+# Setup
+
+## Install
 
 ```bash
 git clone https://github.com/arieDEV/tokencut.git
@@ -6,25 +8,27 @@ cd tokencut
 ./scripts/install
 ```
 
-## Yang di-wire
+## What gets wired
 
-| Target | Path default |
+| Target | Default location |
 | --- | --- |
-| Cursor | `~/.cursor/skills/tokencut` → symlink ke `skills/` |
-| Grok Bot / box | `~/agent-data/workflows/tokencut-*` |
+| Cursor | `~/.cursor/skills/tokencut` → `skills/` |
+| Agent workflows (hosted box) | `$HOME/agent-data/workflows/tokencut-*` when that directory exists |
 
-Override:
+Overrides:
 
 ```bash
 CURSOR_SKILLS_DIR=/custom/path ./scripts/install
-GROK_WORKFLOWS_DIR=/custom/workflows ./scripts/install
+AGENT_WORKFLOWS_DIR=/custom/workflows ./scripts/install
 ```
 
-## Verifikasi
+Local-only files (not published): `config/settings.json`, `config/brain.md`, `memory/lessons.md`. Defaults live in `config/settings.defaults.json` and `memory/lessons.md.example`.
+
+## Verify
 
 ```bash
-./scripts/toggle status          # ON
-ls ~/.cursor/skills/tokencut    # ada (Cursor)
+./scripts/toggle status
+ls ~/.cursor/skills/tokencut   # when using Cursor
 ```
 
-Lalu di Cursor/Grok Bot: tanya coding biasa pada project yang sudah ada → cari badge ✂️.
+Ask a normal coding question on an existing project. A ✂️ badge indicates tokencut handled the job.

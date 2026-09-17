@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-click setup: turn tokencut ON and wire skills for Cursor / Grok Bot / generic agents.
+# One-click setup: turn tokencut ON and wire skills for Cursor and compatible coding agents.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 JOBS="${TOKENCUT_JOBS:-$HOME/.tokencut/jobs}"
@@ -52,11 +52,11 @@ wire_cursor() {
   wired+=("Cursor skills → $dest")
 }
 
-# --- Grok Bot / box workflows ---
-wire_grok() {
-  local wf="${GROK_WORKFLOWS_DIR:-$HOME/agent-data/workflows}"
+# --- Hosted agent workflow dirs (optional) ---
+wire_agent_workflows() {
+  local wf="${AGENT_WORKFLOWS_DIR:-$HOME/agent-data/workflows}"
   # also try sand-data paths
-  for cand in "$wf" "$HOME/sand-data/workflows" "/home/box/agent-data/workflows"; do
+  for cand in "$wf" "$HOME/agent-data/workflows" "$HOME/sand-data/workflows"; do
     [[ -d "$(dirname "$cand")" ]] || continue
     mkdir -p "$cand"
     # symlink each skill folder that has SKILL.md
@@ -70,14 +70,14 @@ wire_grok() {
       ln -sfn "$(dirname "$s")" "$target"
     done
     # also copy gate skills from repo skills root markdown if any
-    wired+=("Grok/box workflows → $cand/tokencut-*")
+    wired+=("Agent workflows → $cand/tokencut-*")
     return 0
   done
   return 1
 }
 
 wire_cursor
-wire_grok || true
+wire_agent_workflows || true
 
 # Write install stamp
 cat > "$ROOT/.install-stamp.json" << JSON
@@ -100,8 +100,8 @@ else
   echo "   (No Cursor/Grok skill dir found — scripts still work via TOKENCUT_ROOT)"
 fi
 echo ""
-echo "Next: open your coding agent (Cursor / Grok Bot) and ask a normal coding question"
-echo "on an existing project. You should see a ✂️ badge when tokencut ran."
+echo "Next: in Cursor or your coding agent, ask a normal question about an existing project."
+echo "A ✂️ badge indicates tokencut handled the job."
 echo ""
 echo "Check:  $ROOT/scripts/toggle status"
 echo "Docs:   $ROOT/README.md"
