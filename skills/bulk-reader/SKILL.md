@@ -4,7 +4,7 @@ description: Delegate bulk file reading via tokencut (no Portal). Use for files 
 ---
 
 ```bash
-/workspace/tokencut/scripts/bulk-read --question "<question>" --paths <file1> [<file2> ...]
+$TOKENCUT_ROOT/scripts/bulk-read --question "<question>" --paths <file1> [<file2> ...]
 ```
 
 1. Run the script.

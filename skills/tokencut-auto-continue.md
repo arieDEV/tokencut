@@ -9,7 +9,7 @@ Pause only for stop, approval of destructive actions, or blocking ambiguity.
 Before routing to tokencut, run:
 
 ```bash
-/workspace/tokencut/scripts/should-use-tokencut --prompt "<user ask>" [--paths ...]
+$TOKENCUT_ROOT/scripts/should-use-tokencut --prompt "<user ask>" [--paths ...]
 ```
 
 If `use=false` (modifying tokencut, new project, product docs) → **do not** pack jobs; work on main chat with `badge --none`.

@@ -27,7 +27,7 @@ Bukan tujuan v2: Slack/Docs/Jira/meeting recorder/dashboard konten.
 | Smart-route | `scripts/smart-route` + `config/router-rules.json` | Heuristik role/model |
 | Badge | `scripts/badge` | ✂️ / 🧠 + tier 💚💛❤️ |
 | Toggle | `scripts/toggle` + `config/settings.json` | on/off, badge, smart-route |
-| Jobs | `/workspace/.tokencut/jobs/` | Prompt + manifest |
+| Jobs | `$TOKENCUT_JOBS` (e.g. `/workspace/.tokencut/jobs/`) | Prompt + manifest |
 
 ## 3. Pola Second Brain yang diadopsi
 

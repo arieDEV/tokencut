@@ -6,7 +6,7 @@ description: Always label chat replies that used tokencut with a role/model badg
 After any tokencut job (role-run, smart-route --pack, bulk-read, code-write), end the user-visible reply with:
 
 ```bash
-/workspace/tokencut/scripts/badge --from-job <manifest.json>
+$TOKENCUT_ROOT/scripts/badge --from-job <manifest.json>
 ```
 
 Emoji legend: 💚 low · 💛 medium · ❤️ high · 🧠 main without tokencut.

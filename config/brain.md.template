@@ -1,7 +1,8 @@
 # tokencut brain (user / team profile)
 
-> Salin ke `config/brain.md` dan isi. Jangan taruh secret/token/password di sini.
-> File ini di-inject ringkas ke prompt worker (cap karakter).
+> Copy to `config/brain.md` and fill in. Never put secrets/tokens/passwords here.
+> A short form of this file is injected into worker prompts (character-capped).
+> `config/brain.md` is gitignored — only this template ships in the repo.
 
 ## Role
 - Your role:
@@ -16,7 +17,7 @@
 -
 
 ## Review preferences
-- Language for answers: id-ID / en
+- Language for answers: en / id-ID / …
 - Strictness: (low/medium/high)
 - Must check:
 

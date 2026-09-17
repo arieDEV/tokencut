@@ -1,37 +1,44 @@
-# Kapan tokencut aktif (seperti dependency terpasang)
+# When tokencut is active (like an installed dependency)
 
-**tokencut ON = sudah “ter-install”.** User **tidak** perlu bilang “pakai tokencut”.
-Seperti `npm` / `pip`: kalau tugas coding cocok, agent **wajib** memakai tokencut sendiri.
+**tokencut ON = installed.** The user does **not** need to say “pakai tokencut”.
+Like `npm` / `pip`: if the coding task fits, the agent **should** use tokencut on its own.
 
-Matikan hanya dengan: `toggle off` (global) atau kasus pengecualian di bawah.
+Turn it off only with `toggle off` (global) or the exceptions below.
 
-## Aktif otomatis (✂️) — default
-Setiap ask coding di **project user yang sudah ada** (bukan folder tokencut):
-- Baca / ringkas / jelaskan area kode
-- Generate boilerplate dari referensi
-- Review draft/diff
-- Debug dengan log + potongan kode
-- Prompt kabur → classifier low lalu lanjut role
+## Auto-on (✂️) — default
 
-Alur agent (tanpa menunggu kata ajaib):
+Every coding ask on an **existing user project** (not the tokencut repo itself):
+
+- Read / summarize / explain a code area
+- Generate boilerplate from a reference
+- Review a draft/diff
+- Debug with logs + code snippets
+- Ambiguous prompt → low classifier, then the chosen role
+
+Agent flow (no magic words):
 
 ```bash
-should-use-tokencut --prompt "<user ask>"
-# jika use=true:
-detect-project / use-for-project --prompt "..."
-# lalu Task worker + drive-next (auto-continue) + badge ✂️
+"$TOKENCUT_ROOT/scripts/should-use-tokencut" --prompt "<user ask>"
+# if use=true:
+"$TOKENCUT_ROOT/scripts/detect-project"   # or use-for-project --prompt "..."
+# then Task worker + drive-next (auto-continue) + badge ✂️
 ```
 
-## Tetap di main (🧠) — pengecualian
-1. **Modifikasi tokencut sendiri** (`/workspace/tokencut`, “ubah/perbaiki tokencut”)
-2. **Project baru / greenfield** (scaffold dari nol)
-3. **Tanya produk tokencut** (cara pakai, status toggle, README)
-4. **tokencut di-toggle OFF**
-5. Debug bedah yang memang butuh konteks penuh di chat utama
+## Answer directly (🧠) — exceptions
+
+1. **Editing tokencut itself** (`$TOKENCUT_ROOT`, “fix/change tokencut”)
+2. **New project / greenfield** (scaffold from scratch)
+3. **Product questions** (how to use, toggle status, README)
+4. **tokencut toggled OFF**
+5. Surgical debug that truly needs full context in the main reply
 
 ## Gate
+
 ```bash
-/workspace/tokencut/scripts/should-use-tokencut --prompt "<user ask>" [--paths ...]
+"$TOKENCUT_ROOT/scripts/should-use-tokencut" --prompt "<user ask>" [--paths ...]
 ```
-`use=false` → main + badge `--none`  
-`use=true` → auto pack (user tidak perlu sebut tokencut)
+
+`use=false` → answer directly + `badge --none`  
+`use=true` → auto pack (user need not mention tokencut)
+
+See also: [`PUBLIC.md`](PUBLIC.md).

@@ -4,7 +4,7 @@ description: Delegate boilerplate generation via tokencut (no Portal). Use when 
 ---
 
 ```bash
-/workspace/tokencut/scripts/code-write --spec "<spec>" --reference <ref> [--target <out>]
+$TOKENCUT_ROOT/scripts/code-write --spec "<spec>" --reference <ref> [--target <out>]
 ```
 
 1. Run the script.

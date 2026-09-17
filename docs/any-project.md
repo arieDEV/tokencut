@@ -1,12 +1,18 @@
-# Project apa pun — selalu aktif bila ON
+# Any project — always on when toggled ON
 
-User tidak peduli path dan **tidak perlu** kata “pakai tokencut”.
+The user does not care about paths and **does not** need to say “pakai tokencut”.
 
-Kalau `toggle` = ON dan ask = kerja coding di project yang ada:
+When `toggle` = ON and the ask is coding work on an existing project:
 
-1. `should-use-tokencut` (kecuali meta/greenfield → main)
-2. `detect-project` — pilih repo di `/workspace` selain tokencut
+1. `should-use-tokencut` (except meta/greenfield → answer directly)
+2. `detect-project` — pick a repo under the workspace root (default `/workspace`, or `WORKSPACE_ROOT`), excluding tokencut
 3. `use-for-project` — pack + auto-continue
-4. Badge ✂️ di jawaban
+4. ✂️ badge on the reply
 
-Analog: dependency sudah di-`npm install` / `pip install` — tinggal dipakai.
+Analogy: dependency already `npm install` / `pip install` — just use it.
+
+```bash
+export TOKENCUT_ROOT=/path/to/tokencut
+"$TOKENCUT_ROOT/scripts/detect-project" --json
+"$TOKENCUT_ROOT/scripts/use-for-project" --prompt "Explain the auth flow briefly"
+```

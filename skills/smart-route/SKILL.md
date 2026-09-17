@@ -4,7 +4,7 @@ description: Detect tokencut role and model_hint from a user prompt, optionally 
 ---
 
 ```bash
-/workspace/tokencut/scripts/smart-route --prompt "<user text>" [--paths ...] [--draft d] [--brief b] [--log l] [--reference r] [--pack]
+$TOKENCUT_ROOT/scripts/smart-route --prompt "<user text>" [--paths ...] [--draft d] [--brief b] [--log l] [--reference r] [--pack]
 ```
 
 1. Read `suggested_role`, `model_hint`, `confidence`, `ambiguous`.
@@ -16,7 +16,7 @@ description: Detect tokencut role and model_hint from a user prompt, optionally 
 Before routing to tokencut, run:
 
 ```bash
-/workspace/tokencut/scripts/should-use-tokencut --prompt "<user ask>" [--paths ...]
+$TOKENCUT_ROOT/scripts/should-use-tokencut --prompt "<user ask>" [--paths ...]
 ```
 
 If `use=false` (modifying tokencut, new project, product docs) → **do not** pack jobs; work on main chat with `badge --none`.
