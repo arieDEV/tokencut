@@ -2,9 +2,10 @@
   "enabled": true,
   "badge": true,
   "smart_route": true,
-  "updated_at": "2026-09-18T05:03:46+07:00",
+  "updated_at": "2026-09-18T05:06:23+07:00",
   "updated_by": "toggle",
   "inject_brain": true,
   "inject_lessons": true,
-  "classify_ambiguous": true
+  "classify_ambiguous": true,
+  "auto_continue": true
 }

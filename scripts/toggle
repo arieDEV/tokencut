@@ -52,8 +52,11 @@ print_status() {
   [[ "$il" == "true" ]] && il_l="ON" || il_l="OFF"
   echo "inject_brain:    $ib_l"
   echo "inject_lessons:  $il_l"
+  ac=$(jq -r ".auto_continue // true" "$SETTINGS")
+  [[ "$ac" == "true" ]] && ac_l="ON" || ac_l="OFF"
+  echo "auto_continue:   $ac_l"
   echo "settings_file:   $SETTINGS"
-  jq -c '{enabled,badge,smart_route,inject_brain,inject_lessons,updated_at}' "$SETTINGS"
+  jq -c '{enabled,badge,smart_route,inject_brain,inject_lessons,auto_continue,updated_at}' "$SETTINGS"
 }
 
 cmd="${1:-status}"
@@ -104,6 +107,15 @@ case "$cmd" in
       on) set_key inject_lessons true; echo "inject_lessons ON" ;;
       off) set_key inject_lessons false; echo "inject_lessons OFF" ;;
       *) echo "Usage: toggle inject-lessons on|off" >&2; exit 2 ;;
+    esac
+    print_status
+    ;;
+
+  auto-continue|auto_continue)
+    case "${2:-}" in
+      on) set_key auto_continue true; echo "auto_continue ON" ;;
+      off) set_key auto_continue false; echo "auto_continue OFF" ;;
+      *) echo "Usage: toggle auto-continue on|off" >&2; exit 2 ;;
     esac
     print_status
     ;;

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# exit 0 + print true if auto_continue enabled
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+v=$(jq -r '.auto_continue // true' "$ROOT/config/settings.json")
+echo "$v"
+[[ "$v" == "true" ]]
