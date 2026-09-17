@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+# Advance the latest (or given) tokencut chain one step — for AUTO-CONTINUE.
+# Usage:
+#   drive-next [--job-dir DIR]
+# Prints JSON describing what was done / what agent must Task next.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+JOBS="${TOKENCUT_JOBS:-/workspace/.tokencut/jobs}"
+# shellcheck source=lib/delegate.sh
+. "$ROOT/scripts/lib/delegate.sh"
+
+if ! "$ROOT/scripts/should-auto-continue" >/dev/null; then
+  jq -n '{ok:false,error:"auto_continue is OFF",action:"stop"}'
+  exit 2
+fi
+
+job_dir=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --job-dir) job_dir="$2"; shift 2 ;;
+    -h|--help) echo "Usage: drive-next [--job-dir DIR]"; exit 0 ;;
+    *) echo "Unknown: $1" >&2; exit 2 ;;
+  esac
+done
+
+if [[ -z "$job_dir" ]]; then
+  job_dir=$(ls -1dt "$JOBS"/*/ 2>/dev/null | head -1 | sed 's:/*$::')
+fi
+[[ -n "$job_dir" && -d "$job_dir" ]] || { echo '{"ok":false,"error":"no job"}' ; exit 1; }
+
+role=$(cat "$job_dir/role.txt" 2>/dev/null || jq -r '.role // empty' "$job_dir/manifest.json")
+chain="$job_dir/chain.json"
+pipeline_md="$job_dir/PIPELINE.md"
+qid=$(jq -r '.job_id // empty' "$job_dir/manifest.json" 2>/dev/null || basename "$job_dir")
+
+# Extract original question from PROMPT if present
+question=$(awk '/^## Question$/{getline; getline; print; exit}' "$job_dir/PROMPT.md" 2>/dev/null || true)
+[[ -n "$question" ]] || question="Synthesize prior tokencut worker outputs for the user."
+
+# State machine for read-then-synthesize / explain-area
+if [[ -f "$chain" ]]; then
+  steps=$(jq -c '.steps' "$chain")
+else
+  steps='["reader","synthesizer"]'
+fi
+
+has_brief=false
+[[ -s "$job_dir/brief.md" || -s "$job_dir/answer.md" ]] && has_brief=true
+# Prefer brief.md
+if [[ ! -s "$job_dir/brief.md" && -s "$job_dir/answer.md" ]]; then
+  cp "$job_dir/answer.md" "$job_dir/brief.md"
+fi
+
+# Find if a synthesizer child already exists pointing at this brief
+synth_existing=""
+for d in $(ls -1dt "$JOBS"/*-role-synthesizer 2>/dev/null | head -20); do
+  d=${d%/}
+  if grep -q "$job_dir/brief.md" "$d/PROMPT.md" 2>/dev/null; then
+    synth_existing=$d
+    break
+  fi
+done
+
+if [[ "$role" == "reader" || "$role" == "writer" || "$role" == "reviewer" ]]; then
+  if [[ "$has_brief" != true ]]; then
+    pf=$(jq -r .prompt_file "$job_dir/manifest.json")
+    model=$(jq -r .model_hint "$job_dir/manifest.json")
+    jq -n \
+      --arg action "task_worker" \
+      --arg job_dir "$job_dir" \
+      --arg prompt_file "$pf" \
+      --arg model "$model" \
+      --arg save_to "$job_dir/brief.md" \
+      '{ok:true,action:$action,job_dir:$job_dir,prompt_file:$prompt_file,model:$model,save_answer_to:$save_to,note:"Run worker then call drive-next again"}'
+    exit 0
+  fi
+
+  # Have brief — pack synthesizer if pipeline expects it
+  needs_synth=false
+  echo "$steps" | grep -q synthesizer && needs_synth=true
+  [[ -f "$pipeline_md" ]] && grep -q synthesizer "$pipeline_md" && needs_synth=true
+
+  if [[ "$needs_synth" == true ]]; then
+    if [[ -n "$synth_existing" && -s "$synth_existing/answer.md" ]]; then
+      badge=$("$ROOT/scripts/badge" --chain "reader:low,synthesizer:high" --job-id "$(basename "$synth_existing")")
+      jq -n --arg action "done" --arg badge "$badge" --arg answer_file "$synth_existing/answer.md" \
+        --arg synth_job "$synth_existing" \
+        '{ok:true,action:$action,synth_job_dir:$synth_job,answer_file:$answer_file,badge:$badge}'
+      exit 0
+    fi
+    if [[ -n "$synth_existing" && ! -s "$synth_existing/answer.md" ]]; then
+      pf=$(jq -r .prompt_file "$synth_existing/manifest.json")
+      jq -n --arg action "task_worker" --arg job_dir "$synth_existing" --arg prompt_file "$pf" \
+        --arg model "high" --arg save_to "$synth_existing/answer.md" \
+        '{ok:true,action:$action,job_dir:$job_dir,prompt_file:$prompt_file,model:$model,save_answer_to:$save_to,note:"Synthesizer packed; run high worker"}'
+      exit 0
+    fi
+    # Pack new synthesizer
+    json=$("$ROOT/scripts/role-run" --role synthesizer --question "$question" --brief "$job_dir/brief.md" 2>/tmp/drive-next.err)
+    sdir=$(echo "$json" | jq -r .job_dir)
+    # link parent
+    echo "$job_dir" > "$sdir/parent_job.txt"
+    jq -n --argjson packed "$json" --arg action "task_worker" \
+      --arg save_to "$(echo "$json" | jq -r .job_dir)/answer.md" \
+      '{ok:true,action:$action,packed:$packed,model:"high",prompt_file:$packed.prompt_file,job_dir:$packed.job_dir,save_answer_to:$save_to,note:"Synthesizer newly packed; run high worker then drive-next"}'
+    exit 0
+  fi
+fi
+
+if [[ "$role" == "synthesizer" || "$role" == "classifier" ]]; then
+  if [[ ! -s "$job_dir/answer.md" && ! -s "$job_dir/answer.json" ]]; then
+    pf=$(jq -r .prompt_file "$job_dir/manifest.json")
+    model=$(jq -r .model_hint "$job_dir/manifest.json")
+    jq -n --arg action "task_worker" --arg job_dir "$job_dir" --arg prompt_file "$pf" --arg model "$model" \
+      --arg save_to "$job_dir/answer.md" \
+      '{ok:true,action:$action,job_dir:$job_dir,prompt_file:$prompt_file,model:$model,save_answer_to:$save_to}'
+    exit 0
+  fi
+  badge=$("$ROOT/scripts/badge" --from-job "$job_dir/manifest.json")
+  ans="$job_dir/answer.md"
+  [[ -f "$job_dir/answer.json" ]] && ans="$job_dir/answer.json"
+  jq -n --arg action "done" --arg badge "$badge" --arg answer_file "$ans" \
+    '{ok:true,action:$action,answer_file:$answer_file,badge:$badge}'
+  exit 0
+fi
+
+jq -n --arg action "noop" --arg job_dir "$job_dir" --arg role "$role" \
+  '{ok:true,action:$action,job_dir:$job_dir,role:$role,note:"No automatic next step encoded for this role"}'
