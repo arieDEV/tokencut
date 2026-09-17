@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Run a named coding SOP command (thin wrapper over pipeline).
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+CMD_DIR="$ROOT/config/commands"
+
+list() {
+  for f in "$CMD_DIR"/*.md; do
+    [[ -f "$f" ]] || continue
+    name=$(basename "$f" .md)
+    desc=$(awk '/^description:/{sub(/^description:[[:space:]]*/,""); print; exit}' "$f")
+    pipe=$(awk '/^pipeline:/{sub(/^pipeline:[[:space:]]*/,""); print; exit}' "$f")
+    printf '%s\t%s\tpipeline=%s\n' "$name" "${desc:-}" "${pipe:-}"
+  done
+}
+
+if [[ $# -lt 1 || "$1" == "--list" || "$1" == "list" ]]; then
+  list
+  exit 0
+fi
+
+name="$1"; shift
+file="$CMD_DIR/$name.md"
+[[ -f "$file" ]] || { echo "Unknown command: $name" >&2; list >&2; exit 1; }
+pipe=$(awk '/^pipeline:/{sub(/^pipeline:[[:space:]]*/,""); print; exit}' "$file")
+[[ -n "$pipe" ]] || { echo "Command $name missing pipeline: in frontmatter" >&2; exit 1; }
+
+echo "[tokencut:cmd] $name → pipeline $pipe" >&2
+exec "$ROOT/scripts/pipeline" --pack "$pipe" "$@"

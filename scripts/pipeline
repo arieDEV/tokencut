@@ -1,11 +1,5 @@
 #!/usr/bin/env bash
-# Describe or validate a named tokencut pipeline (agent still runs each step).
-# Usage:
-#   pipeline --list
-#   pipeline --show draft-then-review
-#   pipeline --pack draft-then-review --spec "..." --reference r --target t
-#     → prints step-1 writer job JSON; writes PIPELINE.md with next-step instructions
-
+# Pack / describe tokencut pipelines (agent still runs each step).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ROLES="$ROOT/config/roles.json"
@@ -43,7 +37,7 @@ while [[ $# -gt 0 ]]; do
       while [[ $# -gt 0 && ! "$1" =~ ^-- ]]; do paths+=("$1"); shift; done
       ;;
     -h|--help)
-      sed -n '2,10p' "$0" | tr -d '#'
+      sed -n '2,8p' "$0" | tr -d '#'
       exit 0
       ;;
     *) echo "Unknown arg: $1" >&2; exit 2 ;;
@@ -54,53 +48,80 @@ done
 jq -e --arg n "$name" '.pipelines[$n]' "$ROLES" >/dev/null || {
   echo "Error: unknown pipeline '$name'" >&2; cmd_list >&2; exit 1; }
 
-steps=()
-while IFS= read -r s; do steps+=("$s"); done < <(jq -r --arg n "$name" '.pipelines[$n].steps[]' "$ROLES")
-step1="${steps[0]}"
-step2="${steps[1]:-}"
+chain=$(jq -r --arg n "$name" '.pipelines[$n].steps|join("→")' "$ROLES")
+
+write_chain_file() {
+  local job_dir="$1"
+  jq -n --arg n "$name" --argjson steps "$(jq -c --arg n "$name" '.pipelines[$n].steps' "$ROLES")" \
+    '{pipeline:$n, steps:$steps, badge_hint:("✂️ tokencut chain "+($steps|join("→")))}' \
+    > "${job_dir}/chain.json"
+}
 
 case "$name" in
   draft-then-review)
     [[ -n "$spec" && -n "$reference" ]] || {
       echo "Error: draft-then-review needs --spec and --reference [--target]" >&2; exit 1; }
-    # Pack writer first; instruct agent to then run reviewer on target/draft
     args=(--role writer --spec "$spec" --reference "$reference")
     [[ -n "$target" ]] && args+=(--target "$target")
     json=$("$ROOT/scripts/role-run" "${args[@]}")
     echo "$json"
     job_dir=$(echo "$json" | jq -r .job_dir)
+    write_chain_file "$job_dir"
     cat > "${job_dir}/PIPELINE.md" << PLAN
-# Pipeline: draft-then-review
+# Pipeline: draft-then-review ($chain)
 
-1. Run the writer job above (model=low) using prompt_file.
-2. After writer finishes, pack reviewer:
+1. Run writer (model=low) using prompt_file above.
+2. Pack reviewer:
    $ROOT/scripts/role-run --role reviewer \\
      --question "Review the draft for bugs, risks, and missing tests." \\
      --paths ${target:-$reference} \\
      ${target:+--draft $target}
-3. Run reviewer with model=medium from that new manifest.
-4. Return both: writer summary + reviewer verdict to the user.
+   Run reviewer (model=medium).
+3. Save writer+reviewer outputs to ${job_dir}/worker-outputs.md
+4. Pack synthesizer (required):
+   $ROOT/scripts/role-run --role synthesizer \\
+     --question "Merge writer and reviewer outputs into one final answer for the user (id-ID if they wrote in Indonesian)." \\
+     --brief ${job_dir}/worker-outputs.md
+   Run synthesizer (model=high).
+5. Reply to user with synthesizer answer + badge chain:
+   \`$ROOT/scripts/badge --chain writer:low,reviewer:medium,synthesizer:high --job-id <final_job_id>\`
 PLAN
-    echo "[tokencut: pipeline $name → wrote ${job_dir}/PIPELINE.md]" >&2
+    echo "[tokencut: pipeline $name → ${job_dir}/PIPELINE.md]" >&2
     ;;
-  read-then-architect)
+  read-then-architect|read-then-synthesize)
     [[ -n "$question" && ${#paths[@]} -gt 0 ]] || {
-      echo "Error: read-then-architect needs --question and --paths" >&2; exit 1; }
+      echo "Error: $name needs --question and --paths" >&2; exit 1; }
     json=$("$ROOT/scripts/role-run" --role reader --question "$question" --paths "${paths[@]}")
     echo "$json"
     job_dir=$(echo "$json" | jq -r .job_dir)
-    cat > "${job_dir}/PIPELINE.md" << PLAN
-# Pipeline: read-then-architect
+    write_chain_file "$job_dir"
+    if [[ "$name" == "read-then-architect" ]]; then
+      cat > "${job_dir}/PIPELINE.md" << PLAN
+# Pipeline: read-then-architect ($chain)
 
-1. Run the reader job above (model=low). Save the answer to a brief file, e.g. ${job_dir}/brief.md
+1. Run reader (model=low). Save answer to ${job_dir}/brief.md
 2. Pack architect:
-   $ROOT/scripts/role-run --role architect \\
-     --question "$question" \\
-     --brief ${job_dir}/brief.md
-3. Run architect with model=high.
-4. Return architect recommendation to the user (optionally attach reader brief).
+   $ROOT/scripts/role-run --role architect --question "$question" --brief ${job_dir}/brief.md
+   Run architect (model=high). Append output to ${job_dir}/worker-outputs.md
+3. Pack synthesizer:
+   $ROOT/scripts/role-run --role synthesizer \\
+     --question "Produce the final user-facing recommendation from the brief+architect notes." \\
+     --brief ${job_dir}/worker-outputs.md
+   Run synthesizer (model=high).
+4. Badge: \`$ROOT/scripts/badge --chain reader:low,architect:high,synthesizer:high --job-id <final_job_id>\`
 PLAN
-    echo "[tokencut: pipeline $name → wrote ${job_dir}/PIPELINE.md]" >&2
+    else
+      cat > "${job_dir}/PIPELINE.md" << PLAN
+# Pipeline: read-then-synthesize ($chain)
+
+1. Run reader (model=low). Save answer to ${job_dir}/brief.md
+2. Pack synthesizer:
+   $ROOT/scripts/role-run --role synthesizer --question "$question" --brief ${job_dir}/brief.md
+   Run synthesizer (model=high).
+3. Badge: \`$ROOT/scripts/badge --chain reader:low,synthesizer:high --job-id <final_job_id>\`
+PLAN
+    fi
+    echo "[tokencut: pipeline $name → ${job_dir}/PIPELINE.md]" >&2
     ;;
   *)
     echo "Error: packer not implemented for $name" >&2

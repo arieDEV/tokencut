@@ -1,6 +1,6 @@
 # Rencana tokencut v2 (tanpa implementasi)
 
-**Status:** rencana saja — belum dikerjakan  
+**Status:** epik A–F diimplementasikan (MVP v2) — 2026-09-18  
 **Tanggal:** 2026-09-18  
 **Prinsip:** ambil *pola* AI Second Brain; jangan jadi second-brain/ops penuh.
 

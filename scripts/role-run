@@ -79,7 +79,7 @@ done
 
 # Role-specific required args
 case "$role" in
-  reader|reviewer|debugger)
+  reader|reviewer|debugger|synthesizer)
     [[ -n "$question" ]] || { echo "Error: --question required for role=$role" >&2; exit 1; }
     [[ ${#abs_paths[@]} -gt 0 || -n "$draft" || -n "$logf" ]] || {
       echo "Error: provide --paths and/or --draft/--log for role=$role" >&2; exit 1; }
@@ -121,8 +121,10 @@ tokencut_new_job "role-${role}"
   echo
   echo "$ROLE_PURPOSE"
   echo
+  tokencut_brain_section
+  tokencut_lessons_section "$role"
   case "$role" in
-    reader|reviewer|debugger|architect)
+    reader|reviewer|debugger|architect|synthesizer)
       echo "## Question"
       echo
       echo "$question"

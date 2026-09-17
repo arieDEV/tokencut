@@ -16,7 +16,10 @@
         "Surgical edits needing exact lines in main context",
         "Architecture decisions"
       ],
-      "inputs": ["question", "paths"],
+      "inputs": [
+        "question",
+        "paths"
+      ],
       "system": "You are tokencut role=reader (low-cost). Read ONLY the listed files with the Read tool. Answer in structured bullets. Lead each bullet with an exact name, type, or line number. No greetings, no preamble, no long source quotes. Skip anything not asked. Double-check cited line numbers."
     },
     "writer": {
@@ -32,7 +35,11 @@
         "Novel design",
         "Ambiguous architecture"
       ],
-      "inputs": ["spec", "reference", "target?"],
+      "inputs": [
+        "spec",
+        "reference",
+        "target?"
+      ],
       "system": "You are tokencut role=writer (low-cost). Match the reference file's patterns, naming, and style. Read the reference with the Read tool. Output only code (no markdown fences unless asked). If a target path is given, write the file and report path, line count, and a 3-bullet summary. Prefer reference conventions when the spec is ambiguous."
     },
     "reviewer": {
@@ -49,25 +56,33 @@
         "First-pass bulk summarization (use reader)",
         "Blind generation without artifacts to review"
       ],
-      "inputs": ["question", "paths", "draft?"],
+      "inputs": [
+        "question",
+        "paths",
+        "draft?"
+      ],
       "system": "You are tokencut role=reviewer (medium judgment). Review the listed files and optional draft. Focus on correctness bugs, edge cases, security/privacy risks, and missing tests. Output: (1) Findings ranked by severity with file:line when possible, (2) Open questions, (3) Verdict: approve / approve-with-nits / request-changes. Be concrete. Do not rewrite large files unless asked."
     },
     "architect": {
       "title": "Design / tradeoff advisor",
       "effort": "high",
       "model_hint": "high",
-      "purpose": "Architecture and tradeoff reasoning. Do NOT dump huge corpora into this role — pass short briefs or small key files only.",
+      "purpose": "Architecture and tradeoff reasoning. Do NOT dump huge corpora into this role \u2014 pass short briefs or small key files only.",
       "use_when": [
         "API/shape decisions",
         "Migration plans",
-        "Choosing between 2–3 concrete options"
+        "Choosing between 2\u20133 concrete options"
       ],
       "avoid_when": [
         "Bulk file ingestion (run reader first, then pass the summary)",
         "Boilerplate generation"
       ],
-      "inputs": ["question", "paths?", "brief?"],
-      "system": "You are tokencut role=architect (high judgment). Reason about design tradeoffs. Prefer small key files or a brief from a prior reader job. Structure the answer as: Context → Options → Recommendation → Risks → Next steps. Do not generate large boilerplate. If inputs are too large/noisy, say what summary you need instead."
+      "inputs": [
+        "question",
+        "paths?",
+        "brief?"
+      ],
+      "system": "You are tokencut role=architect (high judgment). Reason about design tradeoffs. Prefer small key files or a brief from a prior reader job. Structure the answer as: Context \u2192 Options \u2192 Recommendation \u2192 Risks \u2192 Next steps. Do not generate large boilerplate. If inputs are too large/noisy, say what summary you need instead."
     },
     "debugger": {
       "title": "Debugger",
@@ -80,18 +95,60 @@
       "avoid_when": [
         "Open-ended codebase tours (use reader first)"
       ],
-      "inputs": ["question", "paths", "log?"],
+      "inputs": [
+        "question",
+        "paths",
+        "log?"
+      ],
       "system": "You are tokencut role=debugger (medium). Using the listed files and optional log excerpt, list ranked hypotheses with evidence (file:line), what would falsify each, and the smallest next probe. Do not propose large refactors first."
+    },
+    "synthesizer": {
+      "title": "Final synthesizer",
+      "effort": "high",
+      "model_hint": "high",
+      "purpose": "Merge worker outputs into a clear final answer for the user. Do not re-read huge corpora \u2014 use briefs and prior worker answers only.",
+      "use_when": [
+        "End of a multi-step pipeline",
+        "Need one polished answer from reader/writer/reviewer outputs"
+      ],
+      "avoid_when": [
+        "Bulk file ingestion",
+        "First-pass reading (use reader)"
+      ],
+      "inputs": [
+        "question",
+        "brief?",
+        "paths?"
+      ],
+      "system": "You are tokencut role=synthesizer (high judgment). Merge the provided briefs/worker outputs into one clear final answer for the user. Prefer Indonesian if the user asked in Indonesian. Structure for actionability. Do not dump raw file contents. If inputs conflict, say so and recommend. Keep the answer concise but complete."
     }
   },
   "pipelines": {
     "draft-then-review": {
-      "description": "writer (low) then reviewer (medium) on the same target",
-      "steps": ["writer", "reviewer"]
+      "description": "writer (low) \u2192 reviewer (medium) \u2192 synthesizer (high)",
+      "steps": [
+        "writer",
+        "reviewer",
+        "synthesizer"
+      ],
+      "require_synthesize": true
     },
     "read-then-architect": {
-      "description": "reader (low) summary then architect (high) on the brief",
-      "steps": ["reader", "architect"]
+      "description": "reader (low) \u2192 architect (high) \u2192 synthesizer (high)",
+      "steps": [
+        "reader",
+        "architect",
+        "synthesizer"
+      ],
+      "require_synthesize": true
+    },
+    "read-then-synthesize": {
+      "description": "reader (low) \u2192 synthesizer (high)",
+      "steps": [
+        "reader",
+        "synthesizer"
+      ],
+      "require_synthesize": true
     }
   }
 }

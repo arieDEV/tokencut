@@ -124,3 +124,6 @@ tokencut_require_enabled() {
     return 1
   fi
 }
+
+# shellcheck source=context.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/context.sh"

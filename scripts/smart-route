@@ -123,6 +123,29 @@ def confidence_from_scores(ranked: list[dict]) -> float:
     return round(min(0.95, 0.35 + 0.15 * top + 0.2 * gap), 3)
 
 
+
+
+def brain_boost(prompt: str, role_scores: dict) -> dict:
+    brain = Path("/workspace/tokencut/config/brain.md")
+    local = Path("/workspace/tokencut/config/brain.local.md")
+    src = local if local.is_file() else brain if brain.is_file() else None
+    if not src:
+        return role_scores
+    blob = src.read_text(errors="ignore").lower()
+    pl = prompt.lower()
+    if "security" in blob or "must check" in blob:
+        role_scores["reviewer"] = role_scores.get("reviewer", 0) + 0.15
+    if any(k in pl for k in ("arsitektur", "tradeoff", "design", "migrasi")):
+        role_scores["architect"] = role_scores.get("architect", 0) + 0.2
+    if any(k in pl for k in ("ringkas", "summar", "baca", "explain")):
+        role_scores["reader"] = role_scores.get("reader", 0) + 0.1
+    # lessons presence slight debugger boost on error words already elsewhere
+    lessons = Path("/workspace/tokencut/memory/lessons.md")
+    if lessons.is_file() and lessons.stat().st_size > 80 and any(k in pl for k in ("jangan", "ingat", "prefer")):
+        role_scores["reviewer"] = role_scores.get("reviewer", 0) + 0.05
+    return role_scores
+
+
 def build_recommendation(args: argparse.Namespace, rules: dict) -> dict:
     ranked = score_roles(
         args.prompt,
@@ -133,6 +156,12 @@ def build_recommendation(args: argparse.Namespace, rules: dict) -> dict:
         has_reference=bool(args.reference),
         rules=rules,
     )
+    # v2: brain/lessons light signal
+    _scores = {r["role"]: r["score"] for r in ranked}
+    _scores = brain_boost(args.prompt, _scores)
+    for r in ranked:
+        r["score"] = round(_scores.get(r["role"], r["score"]), 3)
+    ranked.sort(key=lambda r: r["score"], reverse=True)
     conf = confidence_from_scores(ranked)
     if not ranked or ranked[0]["score"] <= 0:
         winner = {

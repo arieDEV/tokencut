@@ -125,3 +125,20 @@ Put the badge as the **last line** of the chat reply. Never claim token savings 
 
 State file: `config/settings.json` (`enabled`, `badge`, `smart_route`).
 When `enabled=false`, `role-run` / `bulk-read` / `code-write` / `smart-route` refuse to pack jobs.
+
+## tokencut v2
+
+Upgrade pola Second Brain (tanpa Slack/Docs/ops):
+
+| Fitur | Perintah / path |
+| --- | --- |
+| Brain (profil) | `config/brain.md` (+ template) — di-inject ke prompt worker |
+| Learn | `scripts/learn add\|list\|clear` → `memory/lessons.md` |
+| Commands/SOP | `scripts/cmd --list` · `explain-area` · `review-change` · `design-choice` |
+| Synthesizer | role `synthesizer` (high); wajib di akhir pipeline berat |
+| Badge chain | `scripts/badge --chain reader:low,synthesizer:high --job-id …` |
+| Smart-route v2 | `scripts/smart-route` (+ sinyal ringan dari brain/lessons) |
+| On/off | `scripts/toggle on\|off` |
+
+Rencana lengkap: [`docs/v2-plan.md`](docs/v2-plan.md).
+

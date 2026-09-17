@@ -1,0 +1,27 @@
+# tokencut brain (user / team profile)
+
+> Salin ke `config/brain.md` dan isi. Jangan taruh secret/token/password di sini.
+> File ini di-inject ringkas ke prompt worker (cap karakter).
+
+## Role
+- Your role:
+- Team:
+
+## Stack
+- Languages:
+- Frameworks:
+- Infra:
+
+## Repos / areas that matter
+-
+
+## Review preferences
+- Language for answers: id-ID / en
+- Strictness: (low/medium/high)
+- Must check:
+
+## Hard rules (never violate)
+-
+
+## Coding conventions
+-

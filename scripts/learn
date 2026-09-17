@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Append / list / clear tokencut lessons (corrections that should persist).
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+LESSONS="$ROOT/memory/lessons.md"
+
+cmd="${1:-list}"
+shift || true
+
+case "$cmd" in
+  add)
+    text=""
+    tags="general"
+    title="lesson"
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --text) text="$2"; shift 2 ;;
+        --tags) tags="$2"; shift 2 ;;
+        --title) title="$2"; shift 2 ;;
+        *) echo "Unknown: $1" >&2; exit 2 ;;
+      esac
+    done
+    [[ -n "$text" ]] || { echo "Usage: learn add --text \"...\" [--tags reader,general] [--title t]" >&2; exit 2; }
+    {
+      echo
+      echo "## $(date +%F) — $title"
+      echo "tags: $tags"
+      echo "- $text"
+    } >> "$LESSONS"
+    echo "Saved lesson → $LESSONS"
+    ;;
+  list)
+    if [[ -f "$LESSONS" ]]; then
+      sed -n '1,200p' "$LESSONS"
+    else
+      echo "(no lessons yet)"
+    fi
+    ;;
+  clear)
+    tag="${1:-}"
+    if [[ -z "$tag" ]]; then
+      printf '%s\n' "# tokencut lessons" "" "<!-- cleared $(date -Iseconds) -->" > "$LESSONS"
+      echo "Cleared all lessons"
+    else
+      echo "Tag-specific clear not implemented; use clear without args" >&2
+      exit 2
+    fi
+    ;;
+  -h|--help|help)
+    cat << H
+Usage:
+  learn add --text "..." [--tags reader,general] [--title t]
+  learn list
+  learn clear
+H
+    ;;
+  *)
+    echo "Unknown command: $cmd (add|list|clear)" >&2
+    exit 2
+    ;;
+esac
