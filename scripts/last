@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Show the most recent tokencut job(s) and a ready-to-paste badge.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+JOBS="${TOKENCUT_JOBS:-/workspace/.tokencut/jobs}"
+n="${1:-1}"
+
+if [[ ! -d "$JOBS" ]]; then
+  echo "No jobs dir: $JOBS" >&2
+  exit 1
+fi
+
+mapfile -t dirs < <(ls -1dt "$JOBS"/*/ 2>/dev/null | head -n "$n")
+if [[ ${#dirs[@]} -eq 0 ]]; then
+  echo "No tokencut jobs yet."
+  exit 0
+fi
+
+for d in "${dirs[@]}"; do
+  d=${d%/}
+  man="$d/manifest.json"
+  chain="$d/chain.json"
+  echo "=== $(basename "$d") ==="
+  if [[ -f "$man" ]]; then
+    jq -r '"role=\(.role // .mode)  model=\(.model_hint // .effort)  job_id=\(.job_id)"' "$man"
+    echo "prompt: $(jq -r .prompt_file "$man")"
+    echo -n "badge: "
+    "$ROOT/scripts/badge" --from-job "$man"
+  else
+    echo "(no manifest.json)"
+  fi
+  if [[ -f "$chain" ]]; then
+    echo -n "chain: "
+    "$ROOT/scripts/badge" --from-chain-json "$chain" --job-id "$(basename "$d")"
+  fi
+  if [[ -f "$d/PIPELINE.md" ]]; then
+    echo "pipeline: $d/PIPELINE.md"
+  fi
+  echo
+done

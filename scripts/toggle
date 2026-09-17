@@ -46,8 +46,14 @@ print_status() {
   echo "tokencut:        $en_l"
   echo "badge:           $badge_l"
   echo "smart-route:     $sr_l"
+  ib=$(jq -r ".inject_brain // true" "$SETTINGS")
+  il=$(jq -r ".inject_lessons // true" "$SETTINGS")
+  [[ "$ib" == "true" ]] && ib_l="ON" || ib_l="OFF"
+  [[ "$il" == "true" ]] && il_l="ON" || il_l="OFF"
+  echo "inject_brain:    $ib_l"
+  echo "inject_lessons:  $il_l"
   echo "settings_file:   $SETTINGS"
-  jq -c '{enabled,badge,smart_route,updated_at}' "$SETTINGS"
+  jq -c '{enabled,badge,smart_route,inject_brain,inject_lessons,updated_at}' "$SETTINGS"
 }
 
 cmd="${1:-status}"
@@ -83,6 +89,23 @@ case "$cmd" in
     ;;
   -h|--help|help)
     sed -n '2,10p' "$0" | sed 's/^# //'
+    ;;
+
+  inject-brain|inject_brain)
+    case "${2:-}" in
+      on) set_key inject_brain true; echo "inject_brain ON" ;;
+      off) set_key inject_brain false; echo "inject_brain OFF" ;;
+      *) echo "Usage: toggle inject-brain on|off" >&2; exit 2 ;;
+    esac
+    print_status
+    ;;
+  inject-lessons|inject_lessons)
+    case "${2:-}" in
+      on) set_key inject_lessons true; echo "inject_lessons ON" ;;
+      off) set_key inject_lessons false; echo "inject_lessons OFF" ;;
+      *) echo "Usage: toggle inject-lessons on|off" >&2; exit 2 ;;
+    esac
+    print_status
     ;;
   *)
     echo "Unknown: $cmd (use on|off|status|badge|smart-route)" >&2

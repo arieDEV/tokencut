@@ -142,3 +142,11 @@ Upgrade pola Second Brain (tanpa Slack/Docs/ops):
 
 Rencana lengkap: [`docs/v2-plan.md`](docs/v2-plan.md).
 
+### Post-MVP utilities
+
+```bash
+/workspace/tokencut/scripts/last 3
+/workspace/tokencut/scripts/toggle inject-brain on|off
+/workspace/tokencut/scripts/toggle inject-lessons on|off
+/workspace/tokencut/tests/smart-route-golden.sh
+```
