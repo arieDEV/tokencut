@@ -1,0 +1,266 @@
+#!/usr/bin/env python3
+"""tokencut smart-route — detect role + model_hint from a prompt (heuristic, no LLM)."""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+RULES_PATH = Path(os.environ.get("TOKENCUT_ROUTER_RULES", ROOT / "config" / "router-rules.json"))
+ROLE_RUN = ROOT / "scripts" / "role-run"
+
+
+def load_rules() -> dict:
+    with RULES_PATH.open() as f:
+        return json.load(f)
+
+
+def corpus_stats(paths: list[str]) -> tuple[int, int]:
+    total = 0
+    n = 0
+    for p in paths:
+        fp = Path(p)
+        if fp.is_file():
+            total += fp.stat().st_size
+            n += 1
+    return n, total
+
+
+def score_roles(
+    prompt: str,
+    paths: list[str],
+    *,
+    has_draft: bool,
+    has_brief: bool,
+    has_log: bool,
+    has_reference: bool,
+    rules: dict,
+) -> list[dict]:
+    text = prompt.lower()
+    n_files, total_bytes = corpus_stats(paths)
+    results: list[dict] = []
+
+    for role, cfg in rules["roles"].items():
+        score = 0.0
+        hits: list[str] = []
+        for kw in cfg.get("keywords", []):
+            if kw.lower() in text:
+                score += 1.0
+                hits.append(kw)
+
+        if role == "reader":
+            score += min(n_files * cfg.get("path_bonus_per_file", 0), cfg.get("path_bonus_cap", 0))
+            if total_bytes >= cfg.get("large_corpus_bytes", 10**12):
+                score += cfg.get("large_corpus_bonus", 0)
+                hits.append(f"large_corpus:{total_bytes}B")
+            if n_files >= 3:
+                hits.append(f"files:{n_files}")
+
+        if role == "writer" and has_reference:
+            score += 0.35
+            hits.append("reference_present")
+        if role == "writer" and re.search(r"\b(test|spec|stub|scaffold)\b", text):
+            score += 0.25
+            hits.append("gen_pattern")
+
+        if role == "reviewer" and has_draft:
+            score += cfg.get("draft_bonus", 0)
+            hits.append("draft_present")
+
+        if role == "architect" and has_brief:
+            score += cfg.get("brief_bonus", 0)
+            hits.append("brief_present")
+        if role == "architect" and total_bytes > cfg.get("reject_if_bytes_over", 10**18):
+            score -= 2.0
+            hits.append("corpus_too_big_for_architect")
+
+        if role == "debugger" and has_log:
+            score += cfg.get("log_bonus", 0)
+            hits.append("log_present")
+        if role == "debugger" and re.search(r"\b(e_\d+|error:|exception|traceback)\b", text):
+            score += 0.4
+            hits.append("error_pattern")
+
+        score *= float(cfg.get("weight", 1.0))
+        results.append(
+            {
+                "role": role,
+                "score": round(score, 3),
+                "effort": cfg["effort"],
+                "model_hint": cfg["model_hint"],
+                "hits": hits,
+            }
+        )
+
+    results.sort(key=lambda r: r["score"], reverse=True)
+    return results
+
+
+def confidence_from_scores(ranked: list[dict]) -> float:
+    if not ranked:
+        return 0.0
+    top = ranked[0]["score"]
+    second = ranked[1]["score"] if len(ranked) > 1 else 0.0
+    if top <= 0:
+        return 0.0
+    gap = top - second
+    return round(min(0.95, 0.35 + 0.15 * top + 0.2 * gap), 3)
+
+
+def build_recommendation(args: argparse.Namespace, rules: dict) -> dict:
+    ranked = score_roles(
+        args.prompt,
+        args.paths or [],
+        has_draft=bool(args.draft),
+        has_brief=bool(args.brief),
+        has_log=bool(args.log),
+        has_reference=bool(args.reference),
+        rules=rules,
+    )
+    conf = confidence_from_scores(ranked)
+    if not ranked or ranked[0]["score"] <= 0:
+        winner = {
+            "role": "reader",
+            "score": 0,
+            "effort": "low",
+            "model_hint": "low",
+            "hits": ["fallback_default_reader"],
+        }
+        conf = 0.2
+    else:
+        winner = ranked[0]
+
+    ambiguous = conf < float(rules.get("ambiguous_below", 0.4))
+    n_files, total_bytes = corpus_stats(args.paths or [])
+
+    missing: list[str] = []
+    role = winner["role"]
+    if role in ("reader", "reviewer", "debugger") and not (args.paths or args.draft or args.log):
+        missing.append("paths_or_draft_or_log")
+    if role == "writer" and not args.reference:
+        missing.append("reference")
+    if role == "architect" and total_bytes > rules["roles"]["architect"].get("reject_if_bytes_over", 120000):
+        missing.append("brief_instead_of_large_paths")
+
+    return {
+        "kind": "tokencut-smart-route",
+        "prompt": args.prompt,
+        "suggested_role": winner["role"],
+        "effort": winner["effort"],
+        "model_hint": winner["model_hint"],
+        "confidence": conf,
+        "ambiguous": ambiguous,
+        "can_auto_pack": conf >= float(rules.get("min_confidence_auto_pack", 0.55)) and not missing,
+        "missing_inputs": missing,
+        "corpus": {"files": n_files, "bytes": total_bytes},
+        "ranking": ranked[:5],
+        "reason": f"Top role={winner['role']} score={winner['score']} hits={winner.get('hits', [])}",
+        "agent_instruction": (
+            f"Use tokencut role={winner['role']} with executor model={winner['model_hint']}. "
+            + (
+                "Confidence is low — confirm with the user before packing."
+                if ambiguous
+                else "Pack via role-run (or smart-route --pack) then Task that model_hint."
+            )
+        ),
+    }
+
+
+def parse_json_stdout(stdout: str, stderr: str) -> dict:
+    raw = stdout.strip()
+    if raw:
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            m = re.search(r"\{[\s\S]*\}\s*$", raw)
+            if m:
+                return json.loads(m.group(0))
+    raise SystemExit(f"role-run produced no JSON\nSTDERR:\n{stderr}\nSTDOUT:\n{stdout}")
+
+
+def pack_job(rec: dict, args: argparse.Namespace) -> dict:
+    role = rec["suggested_role"]
+    cmd = [str(ROLE_RUN), "--role", role]
+    if role == "writer":
+        cmd += ["--spec", args.spec or args.prompt]
+        if not args.reference:
+            raise SystemExit("Cannot --pack writer without --reference")
+        cmd += ["--reference", args.reference]
+        if args.target:
+            cmd += ["--target", args.target]
+    else:
+        cmd += ["--question", args.prompt]
+        if args.paths:
+            cmd += ["--paths", *args.paths]
+        if args.draft:
+            cmd += ["--draft", args.draft]
+        if args.brief:
+            cmd += ["--brief", args.brief]
+        if args.log:
+            cmd += ["--log", args.log]
+        if role == "architect" and not args.brief and not args.paths:
+            raise SystemExit("Cannot --pack architect without --brief or small --paths")
+
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise SystemExit((proc.stderr or "") + (proc.stdout or "") or f"role-run failed: {proc.returncode}")
+
+    job = parse_json_stdout(proc.stdout, proc.stderr)
+    rec["packed_job"] = {
+        "job_id": job.get("job_id"),
+        "job_dir": job.get("job_dir"),
+        "prompt_file": job.get("prompt_file"),
+        "role": job.get("role"),
+        "model_hint": job.get("model_hint"),
+        "effort": job.get("effort"),
+        "kind": job.get("kind"),
+    }
+    rec["role_run_stderr"] = proc.stderr.strip()
+    return rec
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="tokencut smart-route: detect role + model from prompt")
+    ap.add_argument("--prompt", "-p", required=True)
+    ap.add_argument("--paths", nargs="*", default=[])
+    ap.add_argument("--reference")
+    ap.add_argument("--target")
+    ap.add_argument("--draft")
+    ap.add_argument("--brief")
+    ap.add_argument("--log")
+    ap.add_argument("--spec")
+    ap.add_argument("--pack", action="store_true")
+    ap.add_argument("--force-pack", action="store_true")
+    ap.add_argument("--explain", action="store_true")
+    args = ap.parse_args()
+
+    rules = load_rules()
+    rec = build_recommendation(args, rules)
+
+    if args.explain:
+        print(json.dumps(rec["ranking"], indent=2), file=sys.stderr)
+
+    if args.pack or args.force_pack:
+        if rec["missing_inputs"] and not args.force_pack:
+            rec["pack_skipped"] = True
+            rec["pack_skip_reason"] = f"missing inputs: {rec['missing_inputs']}"
+        elif not rec["can_auto_pack"] and not args.force_pack:
+            rec["pack_skipped"] = True
+            rec["pack_skip_reason"] = (
+                f"confidence {rec['confidence']} < min_confidence_auto_pack "
+                f"{rules.get('min_confidence_auto_pack', 0.55)}"
+            )
+        else:
+            rec = pack_job(rec, args)
+
+    print(json.dumps(rec, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -76,3 +76,21 @@ Roles live in `config/roles.json`. Pack with `scripts/role-run`; optional pipeli
 ```
 
 The JSON manifest includes `role`, `effort`, and `model_hint` so the agent dispatches the matching executor tier.
+
+## Smart-route
+
+Heuristic detector (no LLM) that scores a natural-language prompt and optional paths, then suggests `role` + `model_hint`.
+
+```bash
+/workspace/tokencut/scripts/smart-route \
+  --prompt "Review this draft for bugs" \
+  --paths src/a.ts --draft /tmp/draft.ts
+
+# Pack when confidence is high enough:
+/workspace/tokencut/scripts/smart-route \
+  --prompt "Summarize these services" \
+  --paths a.ts b.ts c.ts \
+  --pack
+```
+
+Rules: `config/router-rules.json`. This is **not** Portal AiKA auto-routing — it is local keyword/corpus scoring. Ambiguous prompts return low confidence and should be confirmed before packing.

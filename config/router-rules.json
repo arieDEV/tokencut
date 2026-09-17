@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "min_confidence_auto_pack": 0.55,
+  "ambiguous_below": 0.4,
+  "roles": {
+    "reader": {
+      "model_hint": "low",
+      "effort": "low",
+      "weight": 1.0,
+      "keywords": [
+        "baca", "ringkas", "summar", "what does", "apa isi", "jelaskan file",
+        "scan", "overview", "explore", "cari di", "search in", "bulk", "banyak file",
+        "how many", "daftar", "list symbols", "where is"
+      ],
+      "path_bonus_per_file": 0.08,
+      "path_bonus_cap": 0.35,
+      "large_corpus_bytes": 40000,
+      "large_corpus_bonus": 0.25
+    },
+    "writer": {
+      "model_hint": "low",
+      "effort": "low",
+      "weight": 1.0,
+      "keywords": [
+        "generate", "buatkan", "scaffold", "boilerplate", "tulis test", "write test",
+        "stub", "docstring", "implementasikan mirip", "copy pattern", "dari referensi",
+        "create file", "tambah test", "add tests"
+      ],
+      "needs_reference_hint": true
+    },
+    "reviewer": {
+      "model_hint": "medium",
+      "effort": "medium",
+      "weight": 1.05,
+      "keywords": [
+        "review", "reviewer", "kritik", "code review", "pr review", "ada bug",
+        "lgtm", "approve", "request changes", "cek draft", "periksa patch",
+        "security review", "risk"
+      ],
+      "draft_bonus": 0.3
+    },
+    "architect": {
+      "model_hint": "high",
+      "effort": "high",
+      "weight": 1.1,
+      "keywords": [
+        "arsitektur", "architect", "design", "tradeoff", "trade-off", "pilih antara",
+        "migration", "migrasi", "rfc", "proposal", "bagaimana struktur", "how should we",
+        "redesign", "api shape", "system design"
+      ],
+      "brief_bonus": 0.25,
+      "reject_if_bytes_over": 120000
+    },
+    "debugger": {
+      "model_hint": "medium",
+      "effort": "medium",
+      "weight": 1.05,
+      "keywords": [
+        "debug", "stack trace", "traceback", "error", "exception", "failing test",
+        "test gagal", "panic", "segfault", "root cause", "kenapa error", "why fail",
+        "log", "incident", "nullpointer", "npe"
+      ],
+      "log_bonus": 0.3
+    }
+  }
+}
